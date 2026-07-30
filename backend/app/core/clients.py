@@ -428,7 +428,7 @@ class OpenRouterClient:
         messages: list[dict[str, str]],
         model: str | None = None,
         temperature: float = 0.0,
-        max_tokens: int = 1000,
+        max_tokens: int = 100000,
         response_format: dict | None = None,
     ) -> str:
         """Direct non-streaming HTTP POST completion for LLM evaluation and structured tasks."""
@@ -450,6 +450,7 @@ class OpenRouterClient:
             "stream": False,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "include_reasoning": False,
         }
         if response_format:
             payload["response_format"] = response_format
