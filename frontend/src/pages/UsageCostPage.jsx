@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BarChart3, DollarSign, Zap, Calendar, Filter } from "lucide-react";
+import { BarChart3, DollarSign, Zap, MessageSquare, FileText } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { fetchDailyUsage, fetchMonthlyUsage } from "../lib/api";
+import { fetchDailyUsage, fetchMonthlyUsage, fetchUsageSummary } from "../lib/api";
 import { CardSkeleton, Skeleton } from "../components/ui/Skeleton";
 import { DateRangePicker } from "../components/ui/DateRangePicker";
 
@@ -19,17 +19,23 @@ export function UsageCostPage() {
   const [endDate, setEndDate] = useState("");
   const [dailyData, setDailyData] = useState([]);
   const [monthlyData, setMonthlyData] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
+      const [sumData, activeUsage] = await Promise.all([
+        fetchUsageSummary(startDate || undefined, endDate || undefined),
+        viewMode === "daily"
+          ? fetchDailyUsage(startDate || undefined, endDate || undefined)
+          : fetchMonthlyUsage(startDate || undefined, endDate || undefined),
+      ]);
+      setSummaryData(sumData);
       if (viewMode === "daily") {
-        const dData = await fetchDailyUsage(startDate || undefined, endDate || undefined);
-        setDailyData(dData);
+        setDailyData(activeUsage);
       } else {
-        const mData = await fetchMonthlyUsage(startDate || undefined, endDate || undefined);
-        setMonthlyData(mData);
+        setMonthlyData(activeUsage);
       }
     } catch (err) {
       console.error("Failed to load usage data:", err);
@@ -45,7 +51,12 @@ export function UsageCostPage() {
   const activeData = viewMode === "daily" ? dailyData : monthlyData;
   const totalCost = activeData.reduce((acc, curr) => acc + (curr.estimated_cost || 0), 0);
   const totalTokens = activeData.reduce((acc, curr) => acc + (curr.total_tokens || 0), 0);
-  const totalQueries = activeData.reduce((acc, curr) => acc + (curr.query_count || 0), 0);
+  const totalLogs = activeData.reduce((acc, curr) => acc + (curr.query_count || 0), 0);
+
+  const queryUsage = summaryData?.query_usage || { estimated_cost: 0, total_tokens: 0, count: 0 };
+  const ingestionUsage = summaryData?.ingestion_usage || { estimated_cost: 0, total_tokens: 0, count: 0 };
+  const combinedCost = summaryData?.total_cost !== undefined ? summaryData.total_cost : totalCost;
+  const combinedTokens = summaryData?.total_tokens !== undefined ? summaryData.total_tokens : totalTokens;
 
   return (
     <div className="w-full space-y-6">
@@ -88,7 +99,7 @@ export function UsageCostPage() {
 
       {loading ? (
         <div className="w-full space-y-6">
-          <CardSkeleton count={3} />
+          <CardSkeleton count={4} />
           <div className="skeuo-raised p-6 space-y-4">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="h-64 w-full" />
@@ -96,39 +107,58 @@ export function UsageCostPage() {
         </div>
       ) : (
         <>
-          {/* Top Stat Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div className="skeuo-stat-card">
+          {/* Top Stat Summary Cards: User Queries vs Document Ingestion Breakdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 1. User Chat Queries Card */}
+            <div className="skeuo-stat-card border-l-4 border-l-blue-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">User Chat Queries</span>
+                <MessageSquare className="h-4 w-4 text-blue-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-[var(--text-heading)] mt-3">
+                ${queryUsage.estimated_cost.toFixed(4)}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                {queryUsage.total_tokens.toLocaleString()} tokens ({queryUsage.count} chats)
+              </p>
+            </div>
+
+            {/* 2. Document Ingestion & OCR Card */}
+            <div className="skeuo-stat-card border-l-4 border-l-purple-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">Document Ingestion & OCR</span>
+                <FileText className="h-4 w-4 text-purple-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-[var(--text-heading)] mt-3">
+                ${ingestionUsage.estimated_cost.toFixed(4)}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                {ingestionUsage.total_tokens.toLocaleString()} tokens ({ingestionUsage.count} files indexed)
+              </p>
+            </div>
+
+            {/* 3. Total Combined Cost Card */}
+            <div className="skeuo-stat-card border-l-4 border-l-amber-500">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">Total Combined Cost</span>
+                <DollarSign className="h-4 w-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-[var(--text-heading)] mt-3">
+                ${combinedCost.toFixed(4)}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">Query + Ingestion spend</p>
+            </div>
+
+            {/* 4. Total Tokens Used Card */}
+            <div className="skeuo-stat-card border-l-4 border-l-emerald-500">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-[var(--text-secondary)]">Total Tokens Used</span>
-                <Zap className="h-4 w-4 text-[var(--info)]" />
+                <Zap className="h-4 w-4 text-emerald-500" />
               </div>
               <div className="text-2xl font-extrabold text-[var(--text-heading)] mt-3">
-                {totalTokens.toLocaleString()}
+                {combinedTokens.toLocaleString()}
               </div>
-              <p className="text-[11px] text-[var(--text-muted)] mt-1">Prompt & Completion tokens combined</p>
-            </div>
-
-            <div className="skeuo-stat-card">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--text-secondary)]">Calculated Cost</span>
-                <DollarSign className="h-4 w-4 text-[var(--warning)]" />
-              </div>
-              <div className="text-2xl font-extrabold text-[var(--text-heading)] mt-3">
-                ${totalCost.toFixed(4)}
-              </div>
-              <p className="text-[11px] text-[var(--text-muted)] mt-1">AI API Provider Spend</p>
-            </div>
-
-            <div className="skeuo-stat-card">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--text-secondary)]">Total Query Logs</span>
-                <BarChart3 className="h-4 w-4 text-[var(--success)]" />
-              </div>
-              <div className="text-2xl font-extrabold text-[var(--text-heading)] mt-3">
-                {totalQueries}
-              </div>
-              <p className="text-[11px] text-[var(--text-muted)] mt-1">RAG requests processed</p>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">Prompt & Completion tokens</p>
             </div>
           </div>
 
@@ -189,7 +219,7 @@ export function UsageCostPage() {
               <thead>
                 <tr>
                   <th>{viewMode === "daily" ? "Date" : "Month"}</th>
-                  <th>Queries</th>
+                  <th>Activity Logs</th>
                   <th>Total Tokens</th>
                   <th>Cost ($)</th>
                 </tr>

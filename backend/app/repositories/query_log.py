@@ -71,7 +71,6 @@ class QueryLogRepository:
             )
             .where(
                 QueryLog.tenant_id == tenant_id,
-                QueryLog.log_type == "query",
                 cast(QueryLog.created_at, Date) >= start_date,
                 cast(QueryLog.created_at, Date) <= end_date,
             )
@@ -107,7 +106,6 @@ class QueryLogRepository:
             func.coalesce(func.sum(QueryLog.estimated_cost), 0).label("estimated_cost"),
         ).where(
             QueryLog.tenant_id == tenant_id,
-            QueryLog.log_type == "query",
         )
 
         if start_date:
@@ -127,6 +125,72 @@ class QueryLogRepository:
             }
             for row in result.all()
         ]
+
+    async def get_usage_summary(
+        self, tenant_id: str, start_date: date | None = None, end_date: date | None = None
+    ) -> dict:
+        stmt = select(
+            QueryLog.log_type,
+            func.count(QueryLog.id).label("count"),
+            func.coalesce(func.sum(QueryLog.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(QueryLog.completion_tokens), 0).label("completion_tokens"),
+            func.coalesce(func.sum(QueryLog.total_tokens), 0).label("total_tokens"),
+            func.coalesce(func.sum(QueryLog.estimated_cost), 0).label("estimated_cost"),
+        ).where(QueryLog.tenant_id == tenant_id)
+
+        if start_date:
+            stmt = stmt.where(cast(QueryLog.created_at, Date) >= start_date)
+        if end_date:
+            stmt = stmt.where(cast(QueryLog.created_at, Date) <= end_date)
+
+        stmt = stmt.group_by(QueryLog.log_type)
+        result = await self.db.execute(stmt)
+
+        summary = {
+            "query_usage": {
+                "total_tokens": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "estimated_cost": 0.0,
+                "count": 0,
+            },
+            "ingestion_usage": {
+                "total_tokens": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "estimated_cost": 0.0,
+                "count": 0,
+            },
+            "total_cost": 0.0,
+            "total_tokens": 0,
+        }
+
+        total_cost = 0.0
+        total_tokens = 0
+
+        for row in result.all():
+            log_type = row.log_type or "query"
+            cost = float(row.estimated_cost or 0)
+            tokens = int(row.total_tokens or 0)
+            total_cost += cost
+            total_tokens += tokens
+
+            cat_dict = {
+                "total_tokens": tokens,
+                "prompt_tokens": int(row.prompt_tokens or 0),
+                "completion_tokens": int(row.completion_tokens or 0),
+                "estimated_cost": round(cost, 6),
+                "count": int(row.count or 0),
+            }
+
+            if log_type == "ingestion":
+                summary["ingestion_usage"] = cat_dict
+            else:
+                summary["query_usage"] = cat_dict
+
+        summary["total_cost"] = round(total_cost, 6)
+        summary["total_tokens"] = total_tokens
+        return summary
 
     async def get_top_questions(self, tenant_id: str, limit: int = 20) -> list[dict]:
         stmt = (

@@ -10,6 +10,7 @@ class DailyUsage(BaseModel):
     completion_tokens: int
     total_tokens: int
     estimated_cost: float
+    log_type: str = "query"
 
 
 class MonthlyUsage(BaseModel):
@@ -17,6 +18,21 @@ class MonthlyUsage(BaseModel):
     query_count: int
     total_tokens: int
     estimated_cost: float
+
+
+class UsageCategoryStats(BaseModel):
+    total_tokens: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    estimated_cost: float = 0.0
+    count: int = 0
+
+
+class UsageSummary(BaseModel):
+    query_usage: UsageCategoryStats
+    ingestion_usage: UsageCategoryStats
+    total_cost: float = 0.0
+    total_tokens: int = 0
 
 
 class DashboardStats(BaseModel):

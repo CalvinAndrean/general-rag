@@ -259,6 +259,15 @@ export async function fetchMonthlyUsage(startDate, endDate) {
   return json.data;
 }
 
+export async function fetchUsageSummary(startDate, endDate) {
+  const params = new URLSearchParams();
+  if (startDate) params.set("start", startDate);
+  if (endDate) params.set("end", endDate);
+  const res = await fetch(`${API_BASE_URL}/usage/summary?${params}`, { headers: authHeaders() });
+  const json = await handleResponse(res);
+  return json.data;
+}
+
 // ── Evaluation ──
 
 export async function runEvaluation(queryLogId) {
