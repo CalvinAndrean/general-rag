@@ -1,6 +1,7 @@
 """Tenant settings endpoints: get/update model config, list OpenRouter models."""
 
 import logging
+import time
 
 import httpx
 from fastapi import APIRouter, Depends
@@ -16,6 +17,10 @@ from app.schemas.settings import OpenRouterModel, TenantSettingsResponse, Tenant
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+_MODELS_CACHE: list[OpenRouterModel] | None = None
+_MODELS_CACHE_TIME: float = 0.0
+_MODELS_CACHE_TTL: float = 300.0  # 5 minutes
 
 
 @router.get("/", response_model=ResponseEnvelope[TenantSettingsResponse])
@@ -73,6 +78,12 @@ async def update_settings(
 @router.get("/models", response_model=ResponseEnvelope[list[OpenRouterModel]])
 async def list_openrouter_models(user: User = Depends(get_current_user)):
     """Fetch available models from the OpenRouter API."""
+    global _MODELS_CACHE, _MODELS_CACHE_TIME
+
+    current_time = time.time()
+    if _MODELS_CACHE is not None and (current_time - _MODELS_CACHE_TIME) < _MODELS_CACHE_TTL:
+        return ResponseEnvelope(data=_MODELS_CACHE)
+
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(
@@ -98,6 +109,9 @@ async def list_openrouter_models(user: User = Depends(get_current_user)):
                     pricing_completion=pricing.get("completion"),
                 )
             )
+
+        _MODELS_CACHE = models
+        _MODELS_CACHE_TIME = current_time
         return ResponseEnvelope(data=models)
     except Exception as e:
         logger.warning(f"Failed to fetch OpenRouter models: {e}")
