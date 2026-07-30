@@ -23,6 +23,10 @@ function AuthenticatedApp() {
   const [activePage, setActivePage] = useState("dashboard");
   const [authView, setAuthView] = useState("login");
 
+  useEffect(() => {
+    document.title = "Cognava | RAG System";
+  }, []);
+
   // Documents & Folders state
   const [documents, setDocuments] = useState([]);
   const [folders, setFolders] = useState([]);

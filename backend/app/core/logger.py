@@ -1,7 +1,8 @@
-"""Rich Terminal Logger Utility for General RAG Core.
+"""Rich Terminal Logger Utility for Cognava RAG Core.
 
-Provides beautiful, step-by-step formatted terminal output for document ingestion,
-OCR processing, chunking, embedding generation, and database storage.
+Provides beautiful, step-by-step formatted terminal output for:
+- API request/response logging (middleware)
+- Document ingestion, OCR processing, chunking, embedding generation
 """
 
 from typing import Any
@@ -9,8 +10,249 @@ from typing import Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 console = Console()
+
+# ─── HTTP Method Color Mapping ───────────────────────────────────────────────
+
+METHOD_COLORS = {
+    "GET": "green",
+    "POST": "yellow",
+    "PUT": "blue",
+    "PATCH": "magenta",
+    "DELETE": "red",
+    "OPTIONS": "dim",
+    "HEAD": "dim",
+}
+
+STATUS_COLORS = {
+    2: "bold green",  # 2xx
+    3: "bold cyan",  # 3xx
+    4: "bold yellow",  # 4xx
+    5: "bold red",  # 5xx
+}
+
+
+def _status_style(status_code: int) -> str:
+    return STATUS_COLORS.get(status_code // 100, "white")
+
+
+# ─── API Request/Response Logger ─────────────────────────────────────────────
+
+
+class APILogger:
+    """Logs API requests and responses with rich formatting."""
+
+    # Paths to skip logging (noisy health checks, static files)
+    SKIP_PATHS = frozenset({"/", "/health", "/favicon.ico", "/openapi.json"})
+    SKIP_PREFIXES = ("/docs", "/redoc", "/static")
+
+    @staticmethod
+    def should_log(path: str) -> bool:
+        if path in APILogger.SKIP_PATHS:
+            return False
+        return not any(path.startswith(p) for p in APILogger.SKIP_PREFIXES)
+
+    @staticmethod
+    def log_request(method: str, path: str, client_ip: str, body: dict | str | None = None):
+        method_color = METHOD_COLORS.get(method.upper(), "white")
+        header = Text()
+        header.append("▶ ", style="bold white")
+        header.append(method.upper(), style=f"bold {method_color}")
+        header.append(f" {path}", style="bold white")
+        header.append(f"  from {client_ip}", style="dim")
+
+        console.print()
+        console.print(
+            Panel(
+                header,
+                title="[bold cyan]← INCOMING REQUEST[/bold cyan]",
+                border_style="cyan",
+                expand=False,
+            )
+        )
+
+        if body and body not in ({}, "", "null", b""):
+            APILogger._log_body("Request Body", body, "cyan")
+
+    @staticmethod
+    def log_response(
+        method: str,
+        path: str,
+        status_code: int,
+        duration_ms: float,
+        body_preview: str | None = None,
+    ):
+        method_color = METHOD_COLORS.get(method.upper(), "white")
+        status_style = _status_style(status_code)
+
+        header = Text()
+        header.append("◀ ", style="bold white")
+        header.append(method.upper(), style=f"bold {method_color}")
+        header.append(f" {path}", style="bold white")
+        header.append("  →  ", style="dim")
+        header.append(str(status_code), style=status_style)
+        header.append(f"  ({duration_ms:.0f}ms)", style="dim italic")
+
+        border_color = "green" if status_code < 400 else ("yellow" if status_code < 500 else "red")
+
+        console.print(
+            Panel(
+                header,
+                title=f"[bold {border_color}]→ RESPONSE[/bold {border_color}]",
+                border_style=border_color,
+                expand=False,
+            )
+        )
+
+        if body_preview:
+            APILogger._log_body("Response Preview", body_preview, border_color, max_len=500)
+
+    @staticmethod
+    def log_error(method: str, path: str, error: str, duration_ms: float):
+        header = Text()
+        header.append("✘ ", style="bold red")
+        header.append(method.upper(), style="bold red")
+        header.append(f" {path}", style="bold white")
+        header.append(f"  ({duration_ms:.0f}ms)", style="dim italic")
+        header.append(f"\n  {error}", style="red")
+
+        console.print(
+            Panel(
+                header,
+                title="[bold red]✘ ERROR[/bold red]",
+                border_style="red",
+                expand=False,
+            )
+        )
+
+    @staticmethod
+    def _log_body(title: str, body: Any, color: str, max_len: int = 800):
+        if isinstance(body, (dict, list)):
+            import json
+
+            body_str = json.dumps(body, indent=2, ensure_ascii=False, default=str)
+        else:
+            body_str = str(body)
+
+        if len(body_str) > max_len:
+            body_str = body_str[:max_len] + f"\n... ({len(body_str) - max_len} chars truncated)"
+
+        console.print(
+            Panel(
+                body_str,
+                title=f"[bold {color}]{title}[/bold {color}]",
+                border_style=color,
+                expand=False,
+            )
+        )
+
+
+# ─── Query Processing Logger ────────────────────────────────────────────────
+
+
+class QueryLogger:
+    """Logs RAG query processing steps with rich formatting."""
+
+    @staticmethod
+    def log_intent_classification(question: str, intent: str, duration_ms: float):
+        intent_colors = {
+            "greeting": "green",
+            "out_of_scope": "yellow",
+            "knowledge_query": "blue",
+        }
+        color = intent_colors.get(intent, "white")
+
+        table = Table(show_header=False, expand=False, padding=(0, 1))
+        table.add_column("Key", style="dim", width=16)
+        table.add_column("Value", style="white")
+
+        q_preview = question[:120] + ("..." if len(question) > 120 else "")
+        table.add_row("Question", f"[white]{q_preview}[/white]")
+        table.add_row("Intent", f"[bold {color}]{intent.upper()}[/bold {color}]")
+        table.add_row("Latency", f"[dim]{duration_ms:.0f}ms[/dim]")
+
+        console.print(
+            Panel(
+                table,
+                title="[bold magenta]🧠 Intent Classification[/bold magenta]",
+                border_style="magenta",
+                expand=False,
+            )
+        )
+
+    @staticmethod
+    def log_retrieval(question: str, top_k: int, chunks_found: int, duration_ms: float):
+        table = Table(show_header=False, expand=False, padding=(0, 1))
+        table.add_column("Key", style="dim", width=16)
+        table.add_column("Value", style="white")
+
+        table.add_row("Top K Requested", str(top_k))
+        table.add_row("Chunks Retrieved", f"[bold cyan]{chunks_found}[/bold cyan]")
+        table.add_row("Latency", f"[dim]{duration_ms:.0f}ms[/dim]")
+
+        console.print(
+            Panel(
+                table,
+                title="[bold blue]🔍 Vector Retrieval[/bold blue]",
+                border_style="blue",
+                expand=False,
+            )
+        )
+
+    @staticmethod
+    def log_llm_stream(model: str, intent: str, tokens: int, duration_ms: float):
+        table = Table(show_header=False, expand=False, padding=(0, 1))
+        table.add_column("Key", style="dim", width=16)
+        table.add_column("Value", style="white")
+
+        table.add_row("Model", f"[bold cyan]{model}[/bold cyan]")
+        table.add_row("Intent", intent)
+        table.add_row("Output Tokens", f"[bold yellow]{tokens}[/bold yellow]")
+        table.add_row("Stream Duration", f"[dim]{duration_ms:.0f}ms[/dim]")
+
+        console.print(
+            Panel(
+                table,
+                title="[bold green]⚡ LLM Streaming Complete[/bold green]",
+                border_style="green",
+                expand=False,
+            )
+        )
+
+    @staticmethod
+    def log_query_complete(
+        question: str,
+        intent: str,
+        model: str,
+        total_tokens: int,
+        citations_count: int,
+        total_ms: float,
+    ):
+        table = Table(show_header=False, expand=False, padding=(0, 1))
+        table.add_column("Key", style="dim", width=16)
+        table.add_column("Value", style="white")
+
+        q_preview = question[:100] + ("..." if len(question) > 100 else "")
+        table.add_row("Question", f"[white]{q_preview}[/white]")
+        table.add_row("Intent", f"[bold]{intent}[/bold]")
+        table.add_row("Model", f"[cyan]{model}[/cyan]")
+        table.add_row("Total Tokens", f"[bold yellow]{total_tokens:,}[/bold yellow]")
+        table.add_row("Citations", str(citations_count))
+        table.add_row("Total Latency", f"[bold green]{total_ms:.0f}ms[/bold green]")
+
+        console.print(
+            Panel(
+                table,
+                title="[bold bright_green]✅ Query Pipeline Complete[/bold bright_green]",
+                border_style="bright_green",
+                expand=False,
+            )
+        )
+
+
+# ─── Ingestion Logger ───────────────────────────────────────────────────────
 
 
 class IngestionLogger:

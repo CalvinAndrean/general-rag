@@ -33,10 +33,12 @@ async def get_daily_usage(
 
 @router.get("/monthly", response_model=ResponseEnvelope[list[MonthlyUsage]])
 async def get_monthly_usage(
+    start: date | None = Query(None),
+    end: date | None = Query(None),
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Get monthly aggregated cost breakdown (admin-only)."""
     repo = QueryLogRepository(db)
-    monthly_items = await repo.get_monthly_usage(admin.tenant_id)
+    monthly_items = await repo.get_monthly_usage(admin.tenant_id, start_date=start, end_date=end)
     return ResponseEnvelope(data=[MonthlyUsage(**item) for item in monthly_items])

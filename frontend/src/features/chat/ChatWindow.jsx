@@ -55,6 +55,13 @@ export function ChatWindow({ indexedDocCount }) {
             )
           );
         },
+        onStatus: (statusText) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === botMessageId ? { ...msg, statusText } : msg
+            )
+          );
+        },
         onError: (err) => {
           setMessages((prev) =>
             prev.map((msg) =>
@@ -83,12 +90,14 @@ export function ChatWindow({ indexedDocCount }) {
     <div className="skeuo-raised flex flex-col h-[calc(100vh-140px)] w-full overflow-hidden bg-white">
       {/* Header Info */}
       <div className="p-4 border-b border-[var(--border-light)] bg-white flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-[var(--info)]" />
-          <span className="text-xs font-bold text-[var(--text-heading)]">RAG Assistant</span>
-          <span className="skeuo-badge skeuo-badge-neutral text-[10px]">
-            {indexedDocCount} documents indexed
-          </span>
+        <div className="flex items-center gap-3">
+          <img src="/Logo-Cognava-Assistant.png" alt="Cognava Assistant" className="h-8 w-8 object-contain shrink-0" />
+          <div>
+            <h3 className="text-xs font-bold text-[var(--text-heading)] leading-tight">Cognava Assistant</h3>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+              {indexedDocCount} active documents
+            </p>
+          </div>
         </div>
         {messages.length > 0 && (
           <button

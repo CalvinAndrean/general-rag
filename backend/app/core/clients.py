@@ -191,6 +191,7 @@ class MistralOCRClient:
 
                 if not isinstance(document_annotation, dict):
                     document_annotation = {}
+                document_annotation["page_count"] = len(pages)
 
                 IngestionLogger.log_ocr_annotation(
                     file_id=file_id,
@@ -356,14 +357,31 @@ class OpenRouterClient:
             raise AppException(message=f"Embedding model failure: {e!s}", code="EMBEDDING_FAILURE")
 
     async def stream_chat_completion(
-        self, messages: list[dict[str, str]]
-    ) -> AsyncGenerator[str, None]:
-        """Streams completion tokens from OpenRouter LLM."""
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[tuple[str, str | dict], None]:
+        """Streams completion tokens and usage payload from OpenRouter LLM."""
         if self._is_mock_mode():
             mock_text = "Based on the provided documents, here is the information requested."
             for word in mock_text.split(" "):
-                yield word + " "
+                yield ("token", word + " ")
             return
+
+        target_model = model or settings.LLM_MODEL_NAME
+
+        body: dict = {
+            "model": target_model,
+            "messages": messages,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if temperature is not None:
+            body["temperature"] = temperature
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
 
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -374,11 +392,7 @@ class OpenRouterClient:
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
                     },
-                    json={
-                        "model": settings.LLM_MODEL_NAME,
-                        "messages": messages,
-                        "stream": True,
-                    },
+                    json=body,
                 ) as response:
                     if response.status_code != 200:
                         err_body = await response.aread()
@@ -393,9 +407,14 @@ class OpenRouterClient:
                                 break
                             try:
                                 payload = json.loads(content)
-                                delta = payload["choices"][0]["delta"].get("content", "")
-                                if delta:
-                                    yield delta
+                                if payload.get("usage"):
+                                    yield ("usage", payload["usage"])
+
+                                choices = payload.get("choices", [])
+                                if choices and len(choices) > 0:
+                                    delta = choices[0].get("delta", {}).get("content", "")
+                                    if delta:
+                                        yield ("token", delta)
                             except json.JSONDecodeError:
                                 continue
         except Exception as e:

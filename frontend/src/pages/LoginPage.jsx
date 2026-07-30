@@ -27,20 +27,16 @@ export function LoginPage({ onNavigate }) {
       <div className="w-full max-w-[400px]">
         {/* Brand */}
         <div className="text-center mb-8">
-          <div
-            className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{
-              background: "linear-gradient(135deg, #6366f1 0%, #3b82f6 100%)",
-              boxShadow: "0 4px 16px rgba(99, 102, 241, 0.3)",
-            }}
-          >
-            <Sparkles className="h-7 w-7 text-white" />
-          </div>
+          <img
+            src="/favicon.png"
+            alt="Cognava Logo"
+            className="h-16 w-16 object-contain mx-auto mb-4 drop-shadow-md shrink-0"
+          />
           <h1 className="text-2xl font-bold text-[var(--text-heading)]">
             Welcome back
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Sign in to your General RAG account
+            Sign in to your Cognava account
           </p>
         </div>
 

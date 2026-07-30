@@ -48,9 +48,6 @@ async def upload_document(
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a document to start RAG ingestion."""
-    print(
-        f"\n[API UPLOAD START] filename={file.filename}, folder_id={folder_id}, user_tenant={user.tenant_id if user else None}"
-    )
     if folder_id in ("root", "null", "", "undefined"):
         folder_id = None
 
@@ -61,19 +58,14 @@ async def upload_document(
         if folder_obj:
             folder_path = f"/{folder_obj.name}/"
 
-    try:
-        doc = await service.upload_and_process(
-            file,
-            tenant_id=user.tenant_id if user else None,
-            user_id=user.id if user else None,
-            folder_id=folder_id,
-            folder_path=folder_path,
-        )
-        print(f"[API UPLOAD SUCCESS] doc.id={doc.id}, status={doc.status}\n")
-        return ResponseEnvelope(data=doc)
-    except Exception as e:
-        print(f"[API UPLOAD EXCEPTION] {type(e).__name__}: {e}\n")
-        raise
+    doc = await service.upload_and_process(
+        file,
+        tenant_id=user.tenant_id if user else None,
+        user_id=user.id if user else None,
+        folder_id=folder_id,
+        folder_path=folder_path,
+    )
+    return ResponseEnvelope(data=doc)
 
 
 @router.get("/", response_model=ResponseEnvelope[DocumentListResponse])
@@ -85,9 +77,6 @@ async def list_documents(
     repo: DocRepoDep = None,
 ):
     """List documents for tenant with optional status, search, and folder filtering."""
-    print(
-        f"\n[API LIST DOCS REQ] status={status}, search={search}, folder_id={folder_id}, user_tenant={user.tenant_id if user else None}"
-    )
     stmt = select(Document).order_by(Document.created_at.desc())
     if user and user.tenant_id:
         stmt = stmt.where((Document.tenant_id == user.tenant_id) | (Document.tenant_id.is_(None)))
@@ -103,7 +92,6 @@ async def list_documents(
 
     result = await repo.db.execute(stmt)
     docs = list(result.scalars().all())
-    print(f"[API LIST DOCS SUCCESS] Found {len(docs)} documents in database")
     doc_responses = [DocumentResponse.model_validate(d) for d in docs]
     return ResponseEnvelope(
         data=DocumentListResponse(documents=doc_responses, total=len(doc_responses))

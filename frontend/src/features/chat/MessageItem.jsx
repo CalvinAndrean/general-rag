@@ -1,6 +1,7 @@
 import React from "react";
-import { Bot, User } from "lucide-react";
+import { User } from "lucide-react";
 import { SourceCitations } from "./SourceCitations";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 export function MessageItem({ message }) {
   const isUser = message.role === "user";
@@ -15,7 +16,11 @@ export function MessageItem({ message }) {
             : "bg-[var(--info-light)] text-[var(--info)] border-[var(--info-border)]"
         }`}
       >
-        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+        {isUser ? (
+          <User className="h-4 w-4" />
+        ) : (
+          <img src="/Logo-Cognava-Assistant.png" alt="Cognava Assistant" className="h-6 w-6 object-contain rounded-sm shrink-0" />
+        )}
       </div>
 
       {/* Bubble */}
@@ -27,9 +32,17 @@ export function MessageItem({ message }) {
               : "bg-[#f8fafc] text-[var(--text-heading)] border border-[#e2e8f0] shadow-xs rounded-tl-xs"
           }`}
         >
-          <div className="whitespace-pre-wrap">{message.content}</div>
-          {message.isStreaming && !message.content && (
-            <span className="inline-block animate-pulse text-[var(--text-muted)]">Searching documents...</span>
+          {isUser ? (
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          ) : (
+            <>
+              {message.content && <MarkdownRenderer content={message.content} />}
+              {message.isStreaming && !message.content && (
+                <span className="inline-block animate-pulse text-[var(--text-muted)] font-medium">
+                  {message.statusText || "Thinking..."}
+                </span>
+              )}
+            </>
           )}
         </div>
 

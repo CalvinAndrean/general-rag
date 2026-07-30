@@ -20,7 +20,16 @@ class TenantSettingsRepository:
 
     async def create_default(self, tenant_id: str) -> TenantSettings:
         """Create default settings for a new tenant."""
-        settings_obj = TenantSettings(tenant_id=tenant_id)
+        from decimal import Decimal
+
+        settings_obj = TenantSettings(
+            tenant_id=tenant_id,
+            llm_model="nvidia/llama-nemotron-embed-vl-1b-v2:free",
+            temperature=Decimal("0.70"),
+            max_tokens=80000,
+            system_prompt=None,
+            top_k=4,
+        )
         self.db.add(settings_obj)
         await self.db.flush()
         return settings_obj

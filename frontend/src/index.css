@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap");
 @import "tailwindcss";
+@import "highlight.js/styles/github-dark.min.css";
 
 /* ═══════════════════════════════════════════════════════════
    DESIGN SYSTEM — Clean Crisp Light UI + 3D Skeuomorphic Buttons
@@ -353,4 +354,31 @@ body {
   ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MARKDOWN BODY — AI Chat Response Styling
+   ═══════════════════════════════════════════════════════════ */
+
+.markdown-body {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.markdown-body > *:first-child {
+  margin-top: 0 !important;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.markdown-body pre code.hljs {
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-body pre {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }

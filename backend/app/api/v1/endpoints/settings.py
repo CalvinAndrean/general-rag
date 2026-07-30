@@ -85,11 +85,15 @@ async def list_openrouter_models(user: User = Depends(get_current_user)):
         models = []
         for m in data.get("data", []):
             pricing = m.get("pricing", {})
+            top_provider = m.get("top_provider") or {}
+            max_out = top_provider.get("max_completion_tokens") or m.get("max_completion_tokens")
+
             models.append(
                 OpenRouterModel(
                     id=m.get("id", ""),
                     name=m.get("name", m.get("id", "")),
                     context_length=m.get("context_length"),
+                    max_output_tokens=max_out,
                     pricing_prompt=pricing.get("prompt"),
                     pricing_completion=pricing.get("completion"),
                 )

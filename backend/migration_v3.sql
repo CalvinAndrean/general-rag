@@ -21,3 +21,7 @@ ALTER TABLE general_rag.documents ADD COLUMN IF NOT EXISTS folder_path VARCHAR(5
 CREATE INDEX IF NOT EXISTS idx_documents_is_active ON general_rag.documents(is_active);
 CREATE INDEX IF NOT EXISTS idx_documents_folder_id ON general_rag.documents(folder_id);
 CREATE INDEX IF NOT EXISTS idx_folders_tenant ON general_rag.folders(tenant_id);
+
+-- 4. Add log_type column to query_logs table
+ALTER TABLE general_rag.query_logs ADD COLUMN IF NOT EXISTS log_type VARCHAR(20) DEFAULT 'query' NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_query_logs_log_type ON general_rag.query_logs(log_type);

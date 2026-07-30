@@ -39,21 +39,17 @@ export function Sidebar({ activePage, onNavigate }) {
     >
       {/* Logo / Brand */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-[var(--border-light)] shrink-0">
-        <div
-          className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
-          style={{
-            background: "linear-gradient(135deg, #6366f1 0%, #3b82f6 100%)",
-            boxShadow: "0 2px 8px rgba(99, 102, 241, 0.3)",
-          }}
-        >
-          <Sparkles className="h-5 w-5 text-white" />
-        </div>
+        <img
+          src="/favicon.png"
+          alt="Cognava Logo"
+          className="h-10 w-10 object-contain shrink-0 drop-shadow-xs"
+        />
         {!collapsed && (
           <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-[var(--text-heading)] truncate leading-tight">
-              General RAG
+            <h1 className="text-base font-extrabold text-[var(--text-heading)] truncate leading-tight tracking-tight">
+              Cognava
             </h1>
-            <p className="text-[10px] text-[var(--text-muted)] truncate">
+            <p className="text-[10px] font-medium text-[var(--text-muted)] truncate">
               {user?.tenant_name || "Platform"}
             </p>
           </div>

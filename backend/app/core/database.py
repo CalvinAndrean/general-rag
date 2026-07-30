@@ -6,7 +6,7 @@ from app.core.config import settings
 
 # Configure connect_args to force search_path=general_rag, public for PostgreSQL asyncpg
 connect_args = {}
-engine_kwargs = {"echo": settings.DEBUG, "future": True}
+engine_kwargs = {"echo": False, "future": True}
 
 if "postgresql" in settings.database_url_final:
     connect_args = {"server_settings": {"search_path": "general_rag, public"}}

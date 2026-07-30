@@ -18,6 +18,9 @@ async def test_document_ingestion_and_query_flow(client: AsyncClient):
     token = reg_res.json()["data"]["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
+    # Set model in tenant settings
+    await client.put("/api/v1/settings/", json={"llm_model": "mock-model"}, headers=headers)
+
     # 1. Upload mock document (PDF)
     pdf_content = b"%PDF-1.4 Mock PDF text content for RAG testing."
     files = {"file": ("test_doc.pdf", io.BytesIO(pdf_content), "application/pdf")}

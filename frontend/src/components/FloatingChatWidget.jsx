@@ -56,6 +56,13 @@ export function FloatingChatWidget({ indexedDocCount = 0 }) {
             )
           );
         },
+        onStatus: (statusText) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === botMessageId ? { ...msg, statusText } : msg
+            )
+          );
+        },
         onError: (err) => {
           setMessages((prev) =>
             prev.map((msg) =>
@@ -91,7 +98,7 @@ export function FloatingChatWidget({ indexedDocCount = 0 }) {
             background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
             boxShadow: "0 8px 30px rgba(37, 99, 235, 0.45)",
           }}
-          title="Open RAG Assistant Chatbot"
+          title="Open Cognava Assistant Chatbot"
         >
           <MessageSquare className="h-6 w-6 transition-transform group-hover:rotate-12" />
         </button>
@@ -102,17 +109,16 @@ export function FloatingChatWidget({ indexedDocCount = 0 }) {
         <div className="fixed bottom-6 right-6 z-50 w-[420px] h-[580px] bg-white rounded-2xl border border-[var(--border-light)] shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-6 zoom-in-95 duration-250 ease-out">
           {/* Widget Header */}
           <div className="px-4 py-3 border-b border-[var(--border-light)] bg-white flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-[var(--info-light)] text-[var(--info)] flex items-center justify-center border border-[var(--info-border)]">
-                <Sparkles className="h-4 w-4" />
-              </div>
+            <div className="flex items-center gap-3">
+              <img src="/Logo-Cognava-Assistant.png" alt="Cognava Assistant" className="h-8 w-8 object-contain shrink-0" />
               <div>
-                <h4 className="text-xs font-bold text-[var(--text-heading)]">RAG Assistant</h4>
-                <p className="text-[10px] text-[var(--text-muted)]">
+                <h3 className="text-xs font-bold text-[var(--text-heading)] leading-tight">Cognava Assistant</h3>
+                <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                   {indexedDocCount} active documents
                 </p>
               </div>
             </div>
+
 
             <div className="flex items-center gap-1">
               {messages.length > 0 && (
@@ -160,9 +166,9 @@ export function FloatingChatWidget({ indexedDocCount = 0 }) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question..."
+              placeholder="Ask anything..."
               disabled={isStreaming}
-              className="skeuo-inset flex-1 px-3 py-2 text-xs rounded-xl"
+              className="skeuo-inset flex-1 px-3.5 py-2 text-xs"
             />
             <button
               type="submit"

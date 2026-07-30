@@ -33,6 +33,9 @@ class QueryLog(Base, UUIDMixin):
     estimated_cost: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=0, nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     top_k: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
+    log_type: Mapped[str] = mapped_column(
+        String(20), default="query", server_default="query", nullable=False, index=True
+    )
     sources_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Use created_at from a simple column since we don't need updated_at

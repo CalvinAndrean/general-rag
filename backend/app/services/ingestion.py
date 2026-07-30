@@ -1,5 +1,6 @@
 import io
 import logging
+from decimal import Decimal
 
 from fastapi import UploadFile
 from llama_index.core import Document as LlamaDocument
@@ -149,19 +150,25 @@ class IngestionService:
                 try:
                     from app.models.query_log import QueryLog
 
-                    prompt_t = 500 * max(1, len(chunk_records))
-                    comp_t = 100 * max(1, len(chunk_records))
-                    cost = round(0.0012 * max(1, len(chunk_records)), 6)
+                    ocr_pages = doc_metadata.get("page_count", 1)
+                    ocr_cost = ocr_pages * 0.001
+                    embedding_tokens = sum(len(c[0]) // 4 for c in extracted_chunks)
+                    embedding_cost = (embedding_tokens / 1000.0) * 0.000008
+                    total_cost = round(Decimal(str(ocr_cost + embedding_cost)), 6)
+
+                    prompt_t = embedding_tokens
+                    comp_t = 0
                     ingest_log = QueryLog(
                         tenant_id=tenant_id,
                         user_id=user_id,
+                        log_type="ingestion",
                         question=f"Document Ingestion: {filename}",
-                        answer=f"Indexed {len(chunk_records)} chunks via Mistral OCR & OpenRouter embeddings",
+                        answer=f"Indexed {len(chunk_records)} chunks across {ocr_pages} page(s) via Mistral OCR & OpenRouter embeddings",
                         model_name="mistral-ocr+openrouter-embed",
                         prompt_tokens=prompt_t,
                         completion_tokens=comp_t,
                         total_tokens=prompt_t + comp_t,
-                        estimated_cost=cost,
+                        estimated_cost=total_cost,
                         latency_ms=1200,
                         top_k=0,
                         sources_count=len(chunk_records),

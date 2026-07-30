@@ -27,17 +27,13 @@ export function JoinTenantPage({ onNavigate }) {
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg-surface)] px-4">
       <div className="w-full max-w-[400px]">
         <div className="text-center mb-8">
-          <div
-            className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{
-              background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
-              boxShadow: "0 4px 16px rgba(139, 92, 246, 0.3)",
-            }}
-          >
-            <Users className="h-7 w-7 text-white" />
-          </div>
+          <img
+            src="/favicon.png"
+            alt="Cognava Logo"
+            className="h-16 w-16 object-contain mx-auto mb-4 drop-shadow-md shrink-0"
+          />
           <h1 className="text-2xl font-bold text-[var(--text-heading)]">Join a team</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Enter your team's invite code to join</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Enter your Cognava team invite code</p>
         </div>
 
         <div className="skeuo-raised p-8">

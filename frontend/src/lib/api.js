@@ -131,7 +131,7 @@ export async function createFolder(name) {
 
 // ── RAG Query (streaming) ──
 
-export async function streamQuery({ question, topK = 4, onToken, onCitations, onError }) {
+export async function streamQuery({ question, topK = 4, onToken, onCitations, onError, onStatus }) {
   try {
     const res = await fetch(`${API_BASE_URL}/query/`, {
       method: "POST",
@@ -160,6 +160,7 @@ export async function streamQuery({ question, topK = 4, onToken, onCitations, on
               const payload = JSON.parse(dataStr);
               if (payload.type === "token" && payload.content) onToken(payload.content);
               else if (payload.type === "citations" && payload.sources) onCitations(payload.sources);
+              else if (payload.type === "status" && payload.status && onStatus) onStatus(payload.status);
             } catch { /* ignore partial JSON */ }
           }
         }
@@ -249,8 +250,11 @@ export async function fetchDailyUsage(startDate, endDate) {
   return json.data;
 }
 
-export async function fetchMonthlyUsage() {
-  const res = await fetch(`${API_BASE_URL}/usage/monthly`, { headers: authHeaders() });
+export async function fetchMonthlyUsage(startDate, endDate) {
+  const params = new URLSearchParams();
+  if (startDate) params.set("start", startDate);
+  if (endDate) params.set("end", endDate);
+  const res = await fetch(`${API_BASE_URL}/usage/monthly?${params}`, { headers: authHeaders() });
   const json = await handleResponse(res);
   return json.data;
 }

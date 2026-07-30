@@ -4,13 +4,14 @@ import { toast } from "sonner";
 import { fetchSettings, updateSettings, fetchOpenRouterModels } from "../lib/api";
 import { Skeleton } from "../components/ui/Skeleton";
 import { CustomSelect } from "../components/ui/CustomSelect";
+import { SkeuoSlider } from "../components/ui/SkeuoSlider";
 
 export function SettingsPage() {
   const [settings, setSettings] = useState({
-    llm_model: "anthropic/claude-3.5-sonnet",
+    llm_model: "nvidia/llama-nemotron-embed-vl-1b-v2:free",
     temperature: 0.7,
-    max_tokens: 2048,
-    system_prompt: "",
+    max_tokens: 80000,
+    system_prompt: "i will insert it manually",
     top_k: 4,
   });
   const [models, setModels] = useState([]);
@@ -67,10 +68,46 @@ export function SettingsPage() {
     );
   }
 
+  const formatTokens = (num) => {
+    if (!num) return null;
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${Math.round(num / 1000)}k`;
+    return num.toString();
+  };
+
+  const formatPrice = (priceStr) => {
+    if (priceStr === null || priceStr === undefined || priceStr === "0") return "Free";
+    const p = parseFloat(priceStr);
+    if (isNaN(p) || p === 0) return "Free";
+    const per1k = p * 1000;
+    if (per1k < 0.0001) return `$${(per1k * 1000).toFixed(3)}/1M`;
+    return `$${per1k.toFixed(4)}/1k`;
+  };
+
   const modelOptions = models.map((m) => ({
     value: m.id,
-    label: `${m.name || m.id} (${m.id})`,
+    label: m.name || m.id,
+    tags: {
+      context: formatTokens(m.context_length) || "N/A",
+      maxOut: formatTokens(m.max_output_tokens),
+      priceIn: formatPrice(m.pricing_prompt),
+      priceOut: formatPrice(m.pricing_completion),
+    },
   }));
+
+  const selectedModelObj = models.find((m) => m.id === settings.llm_model);
+  const isModelSelected = Boolean(settings.llm_model);
+  const maxOutputTokens = selectedModelObj?.max_output_tokens;
+  const minTokens = isModelSelected ? 256 : 0;
+  const maxTokensLimit = isModelSelected ? (maxOutputTokens || 100000) : 0;
+  const currentMaxTokens = settings.max_tokens;
+
+  const handleModelSelect = (val) => {
+    const chosenModel = models.find((m) => m.id === val);
+    const maxOut = chosenModel?.max_output_tokens;
+    const defaultVal = settings.max_tokens > 0 ? settings.max_tokens : (maxOut || 0);
+    setSettings({ ...settings, llm_model: val, max_tokens: defaultVal });
+  };
 
   return (
     <div className="w-full space-y-6">
@@ -89,20 +126,22 @@ export function SettingsPage() {
             {modelOptions.length > 0 ? (
               <CustomSelect
                 value={settings.llm_model}
-                onChange={(val) => setSettings({ ...settings, llm_model: val })}
+                onChange={handleModelSelect}
                 options={modelOptions}
+                placeholder="Select an LLM model first..."
                 className="w-full"
               />
             ) : (
               <input
                 type="text"
-                value={settings.llm_model}
-                onChange={(e) => setSettings({ ...settings, llm_model: e.target.value })}
+                value={settings.llm_model || ""}
+                onChange={(e) => handleModelSelect(e.target.value)}
                 className="skeuo-inset w-full px-3.5 py-2.5 text-xs font-mono"
+                placeholder="Type model ID (e.g. google/gemini-2.0-flash-001)"
               />
             )}
             <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
-              Select the LLM engine for generating RAG answers via OpenRouter gateway.
+              Select the LLM.
             </p>
           </div>
         </div>
@@ -123,14 +162,12 @@ export function SettingsPage() {
                   {settings.temperature}
                 </span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.05"
+              <SkeuoSlider
+                min={0}
+                max={2}
+                step={0.05}
                 value={settings.temperature}
                 onChange={(e) => setSettings({ ...settings, temperature: parseFloat(e.target.value) })}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200 accent-[var(--info)]"
               />
               <div className="flex justify-between items-center text-[10px] text-[var(--text-muted)] font-semibold mt-1.5">
                 <span>Focused</span>
@@ -142,22 +179,43 @@ export function SettingsPage() {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-semibold text-[var(--text-secondary)]">Max Tokens</label>
-                <span className="text-xs font-mono font-bold text-[var(--info)] bg-[var(--info-light)] px-2 py-0.5 rounded border border-[var(--info-border)]">
-                  {settings.max_tokens}
+                <span
+                  className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                    isModelSelected
+                      ? "text-[var(--info)] bg-[var(--info-light)] border-[var(--info-border)]"
+                      : "text-[var(--text-muted)] bg-slate-100 border-slate-200"
+                  }`}
+                >
+                  {currentMaxTokens}
                 </span>
               </div>
-              <input
-                type="range"
-                min="256"
-                max="8192"
-                step="256"
-                value={settings.max_tokens}
-                onChange={(e) => setSettings({ ...settings, max_tokens: parseInt(e.target.value) })}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200 accent-[var(--info)]"
+              <SkeuoSlider
+                min={0}
+                max={maxTokensLimit}
+                step={
+                  maxTokensLimit % 256 === 0
+                    ? 256
+                    : maxTokensLimit % 250 === 0
+                    ? 250
+                    : maxTokensLimit % 100 === 0
+                    ? 100
+                    : 64
+                }
+                disabled={!isModelSelected}
+                value={currentMaxTokens}
+                onChange={(e) =>
+                  setSettings({ ...settings, max_tokens: parseInt(e.target.value) || 0 })
+                }
               />
               <div className="flex justify-between items-center text-[10px] text-[var(--text-muted)] font-semibold mt-1.5">
-                <span>256</span>
-                <span>8192</span>
+                {isModelSelected ? (
+                  <>
+                    <span>Min: 256</span>
+                    <span>Max: {maxOutputTokens || maxTokensLimit}</span>
+                  </>
+                ) : (
+                  <span className="text-[var(--warning)] italic">Disabled: Select an LLM model first</span>
+                )}
               </div>
             </div>
 
@@ -169,14 +227,12 @@ export function SettingsPage() {
                   {settings.top_k}
                 </span>
               </div>
-              <input
-                type="range"
-                min="1"
-                max="20"
-                step="1"
+              <SkeuoSlider
+                min={1}
+                max={20}
+                step={1}
                 value={settings.top_k}
                 onChange={(e) => setSettings({ ...settings, top_k: parseInt(e.target.value) })}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200 accent-[var(--info)]"
               />
               <div className="flex justify-between items-center text-[10px] text-[var(--text-muted)] font-semibold mt-1.5">
                 <span>1 chunk</span>
@@ -195,14 +251,14 @@ export function SettingsPage() {
 
           <div>
             <textarea
-              rows={4}
+              rows={16}
               value={settings.system_prompt || ""}
               onChange={(e) => setSettings({ ...settings, system_prompt: e.target.value })}
               placeholder="Leave blank to use default system prompt..."
-              className="skeuo-inset w-full p-3 text-xs font-mono"
+              className="skeuo-inset w-full p-4 text-xs font-mono min-h-[100px] leading-relaxed resize-y overflow-y-auto rounded-xl"
             />
             <p className="text-[11px] text-[var(--text-muted)] mt-1">
-              Custom instructions prepended to every RAG query prompt.
+              Custom instructions for LLM.
             </p>
           </div>
         </div>
