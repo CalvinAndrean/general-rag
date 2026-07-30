@@ -252,6 +252,92 @@ class QueryLogger:
         )
 
 
+# ─── Ragas Evaluation Logger ──────────────────────────────────────────────
+
+
+class EvaluationLogger:
+    """Helper class for logging step-by-step Ragas LLM-as-a-Judge evaluation with rich formatting."""
+
+    @staticmethod
+    def log_start(query_log_id: str, model: str, question: str):
+        q_preview = question[:100] + ("..." if len(question) > 100 else "")
+        console.print()
+        console.print(
+            Panel(
+                f"[bold yellow]▶ TRIGGERING RAGAS LLM-AS-A-JUDGE EVALUATION[/bold yellow]\n"
+                f"Query Log ID: [bold white]{query_log_id}[/bold white]\n"
+                f"Evaluator Model: [bold cyan]{model}[/bold cyan]\n"
+                f"Question: [italic white]{q_preview}[/italic white]",
+                title="[bold yellow]⚖ RAGAS EVALUATION START[/bold yellow]",
+                border_style="yellow",
+                expand=False,
+            )
+        )
+
+    @staticmethod
+    def log_raw_judge_response(raw_text: str):
+        from rich.syntax import Syntax
+
+        preview = raw_text.strip()
+        syntax = Syntax(preview, "markdown" if "```" in preview else "json", theme="monokai", line_numbers=True)
+        console.print(
+            Panel(
+                syntax,
+                title="[bold magenta]📝 RAW LLM JUDGE OUTPUT[/bold magenta]",
+                border_style="magenta",
+                expand=False,
+            )
+        )
+
+    @staticmethod
+    def log_result(
+        query_log_id: str,
+        faithfulness: float,
+        answer_relevancy: float,
+        context_precision: float,
+        context_recall: float,
+        overall: float,
+        reasoning: str,
+        status: str = "COMPLETED",
+    ):
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Metric", style="bold cyan", width=20)
+        table.add_column("Score", style="bold white", width=12)
+        table.add_column("Quality Assessment", style="white")
+
+        def _badge(val: float) -> str:
+            pct = int(round(val * 100))
+            if val >= 0.8:
+                return f"[bold green]{pct}% (Excellent)[/bold green]"
+            if val >= 0.5:
+                return f"[bold yellow]{pct}% (Fair)[/bold yellow]"
+            return f"[bold red]{pct}% (Poor)[/bold red]"
+
+        table.add_row("Faithfulness", f"{faithfulness:.4f}", _badge(faithfulness))
+        table.add_row("Answer Relevancy", f"{answer_relevancy:.4f}", _badge(answer_relevancy))
+        table.add_row("Context Precision", f"{context_precision:.4f}", _badge(context_precision))
+        table.add_row("Context Recall", f"{context_recall:.4f}", _badge(context_recall))
+        table.add_row("OVERALL SCORE", f"[bold bright_green]{overall:.4f}[/bold bright_green]", _badge(overall))
+
+        console.print(
+            Panel(
+                table,
+                title=f"[bold green]📊 RAGAS EVALUATION RESULT ({status})[/bold green]",
+                border_style="green",
+                expand=False,
+            )
+        )
+        if reasoning:
+            console.print(
+                Panel(
+                    reasoning,
+                    title="[bold blue]💡 LLM Judge Reasoning[/bold blue]",
+                    border_style="blue",
+                    expand=False,
+                )
+            )
+
+
 # ─── Ingestion Logger ───────────────────────────────────────────────────────
 
 

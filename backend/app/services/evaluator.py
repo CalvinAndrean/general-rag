@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from app.core.clients import openrouter_client
 from app.core.database import AsyncSessionLocal
+from app.core.logger import EvaluationLogger
 from app.models.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,55 @@ class RagasEvaluatorService:
         except (ValueError, TypeError):
             return default
 
+    @staticmethod
+    def _parse_judge_json(raw_text: str) -> dict | None:
+        """Robustly extracts JSON dictionary from raw LLM output."""
+        if not raw_text:
+            return None
+
+        clean_res = raw_text.strip()
+
+        # 1. Direct JSON parse
+        try:
+            val = json.loads(clean_res)
+            if isinstance(val, dict):
+                return val
+        except Exception:
+            pass
+
+        # 2. Extract code blocks ```json ... ``` or ``` ... ```
+        blocks = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", clean_res, re.DOTALL | re.IGNORECASE)
+        for b in blocks:
+            try:
+                val = json.loads(b.strip())
+                if isinstance(val, dict):
+                    return val
+            except Exception:
+                pass
+
+        # 3. Find JSON objects containing "faithfulness"
+        matches = re.findall(r"\{[^{}]*\"faithfulness\"[^{}]*\}", clean_res, re.DOTALL)
+        for m in matches:
+            try:
+                val = json.loads(m.strip())
+                if isinstance(val, dict):
+                    return val
+            except Exception:
+                pass
+
+        # 4. Outermost brace slice { ... }
+        first = clean_res.find("{")
+        last = clean_res.rfind("}")
+        if first != -1 and last > first:
+            try:
+                val = json.loads(clean_res[first : last + 1].strip())
+                if isinstance(val, dict):
+                    return val
+            except Exception:
+                pass
+
+        return None
+
     @classmethod
     async def evaluate_query_async(
         cls,
@@ -73,6 +123,8 @@ class RagasEvaluatorService:
         """Immediately registers an Evaluation record with status='EVALUATING' and launches background LLM judge scoring."""
         eval_id = None
         try:
+            EvaluationLogger.log_start(query_log_id, model_name, question)
+
             async with AsyncSessionLocal() as db:
                 eval_entry = Evaluation(
                     tenant_id=tenant_id,
@@ -192,45 +244,33 @@ class RagasEvaluatorService:
             context_recall = 0.85
             reasoning = "Evaluation completed by LLM-as-a-Judge."
 
-            # Robust JSON extraction handling preamble/thinking text from LLM models
             if raw_response:
-                try:
-                    data = None
-                    clean_res = raw_response.strip()
+                EvaluationLogger.log_raw_judge_response(raw_response)
+                data = cls._parse_judge_json(raw_response)
 
-                    # 1. First try direct json.loads
-                    try:
-                        data = json.loads(clean_res)
-                    except json.JSONDecodeError:
-                        # 2. Try stripping markdown code block fences if present
-                        if "```" in clean_res:
-                            fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_res, re.DOTALL | re.IGNORECASE)
-                            if fence_match:
-                                data = json.loads(fence_match.group(1).strip())
-
-                        # 3. Fallback regex to capture any JSON object containing "faithfulness"
-                        if not data:
-                            json_match = re.search(r"\{[^{}]*\"faithfulness\"[^{}]*\}", clean_res, re.DOTALL)
-                            if not json_match:
-                                json_match = re.search(r"\{.*\}", clean_res, re.DOTALL)
-                            if json_match:
-                                data = json.loads(json_match.group(0).strip())
-
-                    if isinstance(data, dict):
-                        faithfulness = cls._clamp_score(data.get("faithfulness"), 0.85)
-                        answer_relevancy = cls._clamp_score(data.get("answer_relevancy"), 0.85)
-                        context_precision = cls._clamp_score(data.get("context_precision"), 0.85)
-                        context_recall = cls._clamp_score(data.get("context_recall"), 0.85)
-                        reasoning = str(data.get("reasoning") or data.get("explanation") or reasoning)
-                    else:
-                        logger.warning(f"Parsed JSON is not a dictionary. Raw: {raw_response[:200]}")
-                except Exception as parse_err:
+                if isinstance(data, dict):
+                    faithfulness = cls._clamp_score(data.get("faithfulness"), 0.85)
+                    answer_relevancy = cls._clamp_score(data.get("answer_relevancy"), 0.85)
+                    context_precision = cls._clamp_score(data.get("context_precision"), 0.85)
+                    context_recall = cls._clamp_score(data.get("context_recall"), 0.85)
+                    reasoning = str(data.get("reasoning") or data.get("explanation") or reasoning)
+                else:
                     logger.warning(
-                        f"Failed to parse LLM judge JSON response: {parse_err}. Raw: {raw_response[:200]}"
+                        f"Could not extract JSON dict from LLM response. Raw response: {raw_response[:300]}"
                     )
 
             overall = round(
                 (faithfulness + answer_relevancy + context_precision + context_recall) / 4, 4
+            )
+
+            EvaluationLogger.log_result(
+                query_log_id=query_log_id,
+                faithfulness=faithfulness,
+                answer_relevancy=answer_relevancy,
+                context_precision=context_precision,
+                context_recall=context_recall,
+                overall=overall,
+                reasoning=reasoning,
             )
 
             # Persist evaluation result to DB
