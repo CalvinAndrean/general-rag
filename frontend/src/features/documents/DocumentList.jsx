@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   FileText,
   FileCode,
@@ -17,11 +17,11 @@ import {
   ListFilter,
   ChevronRight,
   FolderOpen,
-} from "lucide-react";
-import { toggleDocumentActive, createFolder } from "../../lib/api";
-import { toast } from "sonner";
-import { TableSkeleton } from "../../components/ui/Skeleton";
-import { CustomSelect } from "../../components/ui/CustomSelect";
+} from 'lucide-react';
+import { toggleDocumentActive, createFolder } from '../../lib/api';
+import { toast } from 'sonner';
+import { TableSkeleton } from '../../components/ui/Skeleton';
+import { CustomSelect } from '../../components/ui/CustomSelect';
 
 export function DocumentList({
   documents,
@@ -40,21 +40,21 @@ export function DocumentList({
   onPreviewClick,
   onRefresh,
 }) {
-  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderName, setNewFolderName] = useState('');
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
 
   const getFileIcon = (fileType) => {
     switch (fileType.toLowerCase()) {
-      case "pdf":
+      case 'pdf':
         return <FileText className="h-4 w-4 text-red-500" />;
-      case "docx":
+      case 'docx':
         return <FileCode className="h-4 w-4 text-blue-500" />;
-      case "xlsx":
+      case 'xlsx':
         return <FileSpreadsheet className="h-4 w-4 text-emerald-500" />;
-      case "png":
-      case "jpg":
-      case "jpeg":
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
         return <FileImage className="h-4 w-4 text-amber-500" />;
       default:
         return <FileText className="h-4 w-4 text-slate-500" />;
@@ -63,35 +63,37 @@ export function DocumentList({
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case "indexed":
+      case 'indexed':
         return (
           <span className="skeuo-badge skeuo-badge-success">
             <CheckCircle2 className="h-3 w-3" /> Indexed
           </span>
         );
-      case "processing":
+      case 'processing':
         return (
           <span className="skeuo-badge skeuo-badge-warning animate-pulse">
             <Clock className="h-3 w-3" /> Processing
           </span>
         );
-      case "failed":
+      case 'failed':
         return (
           <span className="skeuo-badge skeuo-badge-error">
             <AlertTriangle className="h-3 w-3" /> Failed
           </span>
         );
       default:
-        return <span className="skeuo-badge skeuo-badge-neutral">{status}</span>;
+        return (
+          <span className="skeuo-badge skeuo-badge-neutral">{status}</span>
+        );
     }
   };
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return "0 Bytes";
+    if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const handleActiveToggle = async (docId, currentActive) => {
@@ -100,7 +102,7 @@ export function DocumentList({
       toast.success(`Document knowledge base status updated!`);
       if (onRefresh) onRefresh();
     } catch (err) {
-      toast.error(err.message || "Failed to update active state");
+      toast.error(err.message || 'Failed to update active state');
     }
   };
 
@@ -111,11 +113,11 @@ export function DocumentList({
     try {
       await createFolder(newFolderName.trim());
       toast.success(`Folder "${newFolderName}" created!`);
-      setNewFolderName("");
+      setNewFolderName('');
       setShowFolderModal(false);
       if (onRefresh) onRefresh();
     } catch (err) {
-      toast.error(err.message || "Failed to create folder");
+      toast.error(err.message || 'Failed to create folder');
     } finally {
       setCreatingFolder(false);
     }
@@ -124,10 +126,10 @@ export function DocumentList({
   const handleDownload = (doc, e) => {
     e.stopPropagation();
     if (doc.s3_url) {
-      const a = window.document.createElement("a");
+      const a = window.document.createElement('a');
       a.href = doc.s3_url;
       a.download = doc.name;
-      a.target = "_blank";
+      a.target = '_blank';
       window.document.body.appendChild(a);
       a.click();
       window.document.body.removeChild(a);
@@ -154,27 +156,28 @@ export function DocumentList({
           {/* View Mode Toggle: Folders vs Flat View */}
           <div className="flex items-center bg-[var(--bg-hover)] p-0.5 rounded-lg border border-[var(--border-light)] text-xs">
             <button
-              onClick={() => setViewMode("folder")}
+              onClick={() => setViewMode('folder')}
               className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 cursor-pointer transition-all ${
-                viewMode === "folder"
-                  ? "bg-white shadow-xs text-[var(--text-heading)]"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-heading)]"
+                viewMode === 'folder'
+                  ? 'bg-white shadow-xs text-[var(--text-heading)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-heading)]'
               }`}
             >
               <FolderIcon className="h-3.5 w-3.5 text-[var(--info)]" /> Folders
             </button>
             <button
               onClick={() => {
-                setViewMode("flat");
+                setViewMode('flat');
                 setSelectedFolder(null);
               }}
               className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 cursor-pointer transition-all ${
-                viewMode === "flat"
-                  ? "bg-white shadow-xs text-[var(--text-heading)]"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-heading)]"
+                viewMode === 'flat'
+                  ? 'bg-white shadow-xs text-[var(--text-heading)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-heading)]'
               }`}
             >
-              <ListFilter className="h-3.5 w-3.5 text-[var(--info)]" /> Show All Files
+              <ListFilter className="h-3.5 w-3.5 text-[var(--info)]" /> Show All
+              Files
             </button>
           </div>
         </div>
@@ -196,10 +199,10 @@ export function DocumentList({
               value={statusFilter}
               onChange={setStatusFilter}
               options={[
-                { value: "all", label: "All Statuses" },
-                { value: "indexed", label: "Indexed" },
-                { value: "processing", label: "Processing" },
-                { value: "failed", label: "Failed" },
+                { value: 'all', label: 'All Statuses' },
+                { value: 'indexed', label: 'Indexed' },
+                { value: 'processing', label: 'Processing' },
+                { value: 'failed', label: 'Failed' },
               ]}
               className="w-36"
             />
@@ -208,12 +211,12 @@ export function DocumentList({
       </div>
 
       {/* Folder Breadcrumb Nav (if Folder View) */}
-      {viewMode === "folder" && (
+      {viewMode === 'folder' && (
         <div className="px-4 py-2 bg-[var(--bg-primary)] border-b border-[var(--border-light)] flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <button
             onClick={() => setSelectedFolder(null)}
             className={`hover:underline font-semibold cursor-pointer ${
-              !selectedFolder ? "text-[var(--info)] font-bold" : ""
+              !selectedFolder ? 'text-[var(--info)] font-bold' : ''
             }`}
           >
             Root / All Folders
@@ -222,7 +225,7 @@ export function DocumentList({
             <>
               <ChevronRight className="h-3 w-3 text-[var(--text-muted)]" />
               <span className="font-bold text-[var(--text-heading)]">
-                {folders.find((f) => f.id === selectedFolder)?.name || "Folder"}
+                {folders.find((f) => f.id === selectedFolder)?.name || 'Folder'}
               </span>
             </>
           )}
@@ -230,7 +233,7 @@ export function DocumentList({
       )}
 
       {/* Folder Cards Grid (if at Root in Folder View) */}
-      {viewMode === "folder" && !selectedFolder && folders.length > 0 && (
+      {viewMode === 'folder' && !selectedFolder && folders.length > 0 && (
         <div className="p-4 border-b border-[var(--border-light)] grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[var(--bg-surface)]">
           {folders.map((f) => (
             <div
@@ -240,8 +243,12 @@ export function DocumentList({
             >
               <FolderOpen className="h-5 w-5 text-[var(--info)] group-hover:scale-110 transition-transform" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-[var(--text-heading)] truncate">{f.name}</p>
-                <p className="text-[10px] text-[var(--text-muted)]">Directory</p>
+                <p className="text-xs font-bold text-[var(--text-heading)] truncate">
+                  {f.name}
+                </p>
+                <p className="text-[10px] text-[var(--text-muted)]">
+                  Directory
+                </p>
               </div>
             </div>
           ))}
@@ -252,10 +259,14 @@ export function DocumentList({
       {loading && documents.length === 0 ? (
         <TableSkeleton rows={5} cols={8} />
       ) : error ? (
-        <div className="p-8 text-center text-xs text-[var(--error)]">{error}</div>
+        <div className="p-8 text-center text-xs text-[var(--error)]">
+          {error}
+        </div>
       ) : documents.length === 0 ? (
         <div className="p-12 text-center text-xs text-[var(--text-muted)] space-y-1">
-          <p className="font-bold text-[var(--text-heading)]">No documents found</p>
+          <p className="font-bold text-[var(--text-heading)]">
+            No documents found
+          </p>
           <p>Upload a file above to add documents to your knowledge base.</p>
         </div>
       ) : (
@@ -282,11 +293,15 @@ export function DocumentList({
                       <input
                         type="checkbox"
                         checked={doc.is_active}
-                        onChange={() => handleActiveToggle(doc.id, doc.is_active)}
+                        onChange={() =>
+                          handleActiveToggle(doc.id, doc.is_active)
+                        }
                         className="h-4 w-4 accent-[var(--info)] rounded cursor-pointer"
                       />
-                      <span className={`text-[11px] font-semibold ${doc.is_active ? "text-[var(--success)]" : "text-[var(--text-muted)]"}`}>
-                        {doc.is_active ? "Active" : "Inactive"}
+                      <span
+                        className={`text-[11px] font-semibold ${doc.is_active ? 'text-[var(--success)]' : 'text-[var(--text-muted)]'}`}
+                      >
+                        {doc.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </label>
                   </td>
@@ -305,7 +320,7 @@ export function DocumentList({
                         {/* Folder path info tag */}
                         <p className="text-[10px] text-[var(--text-muted)] font-normal flex items-center gap-1">
                           <FolderIcon className="h-3 w-3" />
-                          <span>{doc.folder_path || "/"}</span>
+                          <span>{doc.folder_path || '/'}</span>
                         </p>
                       </div>
                     </div>
@@ -313,7 +328,9 @@ export function DocumentList({
 
                   {/* Version Tag */}
                   <td>
-                    <span className="skeuo-badge skeuo-badge-neutral font-mono">{doc.version || "v1.0"}</span>
+                    <span className="skeuo-badge skeuo-badge-neutral font-mono">
+                      {doc.version || 'v1.0'}
+                    </span>
                   </td>
 
                   <td className="uppercase text-[11px] font-mono text-[var(--text-secondary)]">
@@ -332,8 +349,9 @@ export function DocumentList({
                     {/* Preview Button */}
                     <button
                       onClick={() => onPreviewClick(doc)}
-                      className="skeuo-btn skeuo-btn-ghost skeuo-btn-sm text-xs cursor-pointer"
+                      className="skeuo-btn skeuo-btn-ghost skeuo-btn-sm text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       title="Preview document"
+                      aria-label={`Preview document ${doc.name}`}
                     >
                       <Eye className="h-3.5 w-3.5 text-[var(--info)]" />
                     </button>
@@ -341,8 +359,9 @@ export function DocumentList({
                     {/* Download Button */}
                     <button
                       onClick={(e) => handleDownload(doc, e)}
-                      className="skeuo-btn skeuo-btn-ghost skeuo-btn-sm text-xs cursor-pointer"
+                      className="skeuo-btn skeuo-btn-ghost skeuo-btn-sm text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       title="Download document"
+                      aria-label={`Download document ${doc.name}`}
                     >
                       <Download className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
                     </button>
@@ -350,8 +369,9 @@ export function DocumentList({
                     {/* Delete Button */}
                     <button
                       onClick={() => onDeleteClick(doc)}
-                      className="skeuo-btn skeuo-btn-ghost skeuo-btn-sm text-[var(--error)] hover:bg-[var(--error-light)] cursor-pointer"
+                      className="skeuo-btn skeuo-btn-ghost skeuo-btn-sm text-[var(--error)] hover:bg-[var(--error-light)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       title="Delete document"
+                      aria-label={`Delete document ${doc.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -368,7 +388,8 @@ export function DocumentList({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-[var(--border-light)] shadow-2xl space-y-4">
             <h3 className="text-base font-bold text-[var(--text-heading)] flex items-center gap-2">
-              <FolderPlus className="h-5 w-5 text-[var(--info)]" /> Create New Folder
+              <FolderPlus className="h-5 w-5 text-[var(--info)]" /> Create New
+              Folder
             </h3>
             <form onSubmit={handleCreateFolder} className="space-y-4">
               <div>
@@ -397,7 +418,7 @@ export function DocumentList({
                   disabled={creatingFolder}
                   className="skeuo-btn skeuo-btn-primary text-xs"
                 >
-                  {creatingFolder ? "Creating..." : "Create Folder"}
+                  {creatingFolder ? 'Creating...' : 'Create Folder'}
                 </button>
               </div>
             </form>
