@@ -30,7 +30,12 @@ Assign a score between 0.00 and 1.00 for each of the 4 Ragas quality metrics:
 3. "context_precision": Score (0.00 - 1.00) measuring the ratio of relevant information to noise/fluff in the retrieved Contexts for answering the question. (1.00 = retrieved context is highly relevant, 0.00 = irrelevant noise).
 4. "context_recall": Score (0.00 - 1.00) measuring whether the retrieved Contexts contain all the necessary facts required to answer the User Question. (1.00 = all required information present, 0.00 = missing critical facts).
 
-Output MUST be a single raw JSON object strictly matching this schema:
+CRITICAL DIRECTIVE:
+Output MUST be ONLY a single valid raw JSON object.
+Do NOT write any preamble, introduction, reasoning, or text BEFORE the JSON object.
+Start your response IMMEDIATELY with the opening curly brace '{{'.
+
+Required JSON Schema:
 {{
   "faithfulness": 0.95,
   "answer_relevancy": 0.90,
@@ -225,17 +230,18 @@ class RagasEvaluatorService:
             messages = [
                 {
                     "role": "system",
-                    "content": "You are a precise LLM-as-a-Judge evaluator for RAG systems. Return ONLY valid JSON.",
+                    "content": "You are a precise LLM-as-a-Judge. Respond ONLY with raw JSON starting directly with '{'. Do NOT include any preambles or reasoning outside JSON.",
                 },
                 {"role": "user", "content": prompt},
             ]
 
-            # Use the EXACT same LLM model specified by the user
+            # Use direct non-streaming HTTP POST completion with response_format
             raw_response = await openrouter_client.get_chat_completion(
                 messages=messages,
                 model=model_name,
                 temperature=0.0,
-                max_tokens=600,
+                max_tokens=1000,
+                response_format={"type": "json_object"},
             )
 
             faithfulness = 0.85

@@ -428,16 +428,75 @@ class OpenRouterClient:
         messages: list[dict[str, str]],
         model: str | None = None,
         temperature: float = 0.0,
-        max_tokens: int = 600,
+        max_tokens: int = 1000,
+        response_format: dict | None = None,
     ) -> str:
-        """Non-streaming completion for LLM evaluation and structured tasks."""
-        full_text = []
-        async for item_type, item_data in self.stream_chat_completion(
-            messages, model=model, temperature=temperature, max_tokens=max_tokens
-        ):
-            if item_type == "token" and isinstance(item_data, str):
-                full_text.append(item_data)
-        return "".join(full_text).strip()
+        """Direct non-streaming HTTP POST completion for LLM evaluation and structured tasks."""
+        if self._is_mock_mode():
+            return json.dumps(
+                {
+                    "faithfulness": 0.90,
+                    "answer_relevancy": 0.88,
+                    "context_precision": 0.85,
+                    "context_recall": 0.87,
+                    "reasoning": "Mock LLM judge evaluation output.",
+                }
+            )
+
+        target_model = model or settings.DEFAULT_MODEL_NAME
+        payload = {
+            "model": target_model,
+            "messages": messages,
+            "stream": False,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if response_format:
+            payload["response_format"] = response_format
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                res = await client.post(
+                    f"{self.base_url}/chat/completions", headers=headers, json=payload
+                )
+
+                # Fallback if specific model doesn't accept response_format payload parameter
+                if res.status_code == 400 and response_format:
+                    payload.pop("response_format", None)
+                    res = await client.post(
+                        f"{self.base_url}/chat/completions", headers=headers, json=payload
+                    )
+
+                if res.status_code != 200:
+                    logger.warning(
+                        f"OpenRouter non-streaming completion returned HTTP {res.status_code}: {res.text}"
+                    )
+                    res.raise_for_status()
+
+                data = res.json()
+                choices = data.get("choices", [])
+                if choices and len(choices) > 0:
+                    msg = choices[0].get("message", {})
+                    return (msg.get("content") or "").strip()
+                return ""
+        except Exception as e:
+            logger.error(f"OpenRouter non-streaming completion failure: {e}")
+            # Fallback to streaming accumulation if non-streaming endpoint fails
+            full_text = []
+            try:
+                async for item_type, item_data in self.stream_chat_completion(
+                    messages, model=model, temperature=temperature, max_tokens=max_tokens
+                ):
+                    if item_type == "token" and isinstance(item_data, str):
+                        full_text.append(item_data)
+                return "".join(full_text).strip()
+            except Exception:
+                return ""
 
 
 s3_client = S3Client()
