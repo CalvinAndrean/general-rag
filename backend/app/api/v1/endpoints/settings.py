@@ -3,6 +3,7 @@
 import logging
 
 import httpx
+from async_lru import alru_cache
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,34 +71,41 @@ async def update_settings(
     )
 
 
+@alru_cache(maxsize=1, ttl=300.0)
+async def _fetch_openrouter_models_cached() -> list[OpenRouterModel]:
+    """Internal function to fetch and cache OpenRouter models."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            "https://openrouter.ai/api/v1/models",
+            headers={"Authorization": f"Bearer {app_settings.OPENROUTER_API_KEY}"},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    models = []
+    for m in data.get("data", []):
+        pricing = m.get("pricing", {})
+        top_provider = m.get("top_provider") or {}
+        max_out = top_provider.get("max_completion_tokens") or m.get("max_completion_tokens")
+
+        models.append(
+            OpenRouterModel(
+                id=m.get("id", ""),
+                name=m.get("name", m.get("id", "")),
+                context_length=m.get("context_length"),
+                max_output_tokens=max_out,
+                pricing_prompt=pricing.get("prompt"),
+                pricing_completion=pricing.get("completion"),
+            )
+        )
+    return models
+
+
 @router.get("/models", response_model=ResponseEnvelope[list[OpenRouterModel]])
 async def list_openrouter_models(user: User = Depends(get_current_user)):
     """Fetch available models from the OpenRouter API."""
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(
-                "https://openrouter.ai/api/v1/models",
-                headers={"Authorization": f"Bearer {app_settings.OPENROUTER_API_KEY}"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-        models = []
-        for m in data.get("data", []):
-            pricing = m.get("pricing", {})
-            top_provider = m.get("top_provider") or {}
-            max_out = top_provider.get("max_completion_tokens") or m.get("max_completion_tokens")
-
-            models.append(
-                OpenRouterModel(
-                    id=m.get("id", ""),
-                    name=m.get("name", m.get("id", "")),
-                    context_length=m.get("context_length"),
-                    max_output_tokens=max_out,
-                    pricing_prompt=pricing.get("prompt"),
-                    pricing_completion=pricing.get("completion"),
-                )
-            )
+        models = await _fetch_openrouter_models_cached()
         return ResponseEnvelope(data=models)
     except Exception as e:
         logger.warning(f"Failed to fetch OpenRouter models: {e}")
