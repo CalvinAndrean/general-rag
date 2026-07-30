@@ -45,7 +45,7 @@ class QueryService:
 
         q_lower = question.strip().lower()
 
-        # Fast heuristic check for pure simple greetings
+        # Fast heuristic check for pure simple greetings and identity questions
         PURE_GREETINGS = {
             "hi",
             "hello",
@@ -53,13 +53,29 @@ class QueryService:
             "pagi",
             "selamat pagi",
             "selamat siang",
+            "selamat sore",
             "selamat malam",
             "hey",
             "ping",
             "test",
             "tes",
+            "kamu siapa",
+            "siapa kamu",
+            "who are you",
+            "what can you do",
+            "apa kabar",
+            "apa kabarmu",
+            "kabarnya gimana",
+            "how are you",
+            "how do you do",
+            "terima kasih",
+            "makasih",
+            "thanks",
+            "thank you",
+            "bye",
+            "dadah",
         }
-        if q_lower in PURE_GREETINGS:
+        if q_lower in PURE_GREETINGS or q_lower.replace("?", "").strip() in PURE_GREETINGS:
             QueryLogger.log_intent_classification(question, "greeting (heuristic)", 0.0)
             return "greeting"
 
