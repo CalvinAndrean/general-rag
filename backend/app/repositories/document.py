@@ -1,6 +1,6 @@
 import json
-import math
 
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,6 +65,9 @@ class DocumentRepository(BaseRepository[Document]):
         all_chunks = result.all()
 
         scored = []
+        q_vec = np.array(query_vector)
+        norm_a = np.linalg.norm(q_vec)
+
         for chunk, doc in all_chunks:
             emb = chunk.embedding
             if not emb:
@@ -76,10 +79,9 @@ class DocumentRepository(BaseRepository[Document]):
                     continue
 
             # Calculate cosine similarity manually for test environment
-            dot_product = sum(a * b for a, b in zip(query_vector, emb))
-            norm_a = math.sqrt(sum(a * a for a in query_vector))
-            norm_b = math.sqrt(sum(b * b for b in emb))
-            sim = dot_product / (norm_a * norm_b) if norm_a and norm_b else 0.0
+            e_vec = np.array(emb)
+            norm_b = np.linalg.norm(e_vec)
+            sim = float(np.dot(q_vec, e_vec) / (norm_a * norm_b)) if norm_a and norm_b else 0.0
             scored.append((chunk, doc, sim))
 
         scored.sort(key=lambda x: x[2], reverse=True)
