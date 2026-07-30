@@ -2,7 +2,7 @@
 
 Evaluates RAG query pipeline responses using the exact same LLM model configured by the user.
 Calculates real scores for Faithfulness, Answer Relevancy, Context Precision, and Context Recall
-asynchronously in background tasks.
+asynchronously in background tasks with real-time status updates (EVALUATING -> COMPLETED / FAILED).
 """
 
 import asyncio
@@ -10,6 +10,8 @@ import json
 import logging
 import re
 from typing import Any
+
+from sqlalchemy import select
 
 from app.core.clients import openrouter_client
 from app.core.database import AsyncSessionLocal
@@ -67,10 +69,37 @@ class RagasEvaluatorService:
         contexts: list[str] | str,
         answer: str,
         model_name: str,
-    ) -> None:
-        """Runs LLM-as-a-Judge evaluation in an asynchronous background task."""
+    ) -> str:
+        """Immediately registers an Evaluation record with status='EVALUATING' and launches background LLM judge scoring."""
+        eval_id = None
+        try:
+            async with AsyncSessionLocal() as db:
+                eval_entry = Evaluation(
+                    tenant_id=tenant_id,
+                    query_log_id=query_log_id,
+                    status="EVALUATING",
+                    faithfulness=None,
+                    answer_relevancy=None,
+                    context_precision=None,
+                    context_recall=None,
+                    overall_score=None,
+                    evaluation_metadata={
+                        "evaluator": "ragas_llm_judge",
+                        "model": model_name,
+                        "step": "Evaluating Faithfulness, Relevancy, Precision & Recall...",
+                    },
+                )
+                db.add(eval_entry)
+                await db.commit()
+                await db.refresh(eval_entry)
+                eval_id = eval_entry.id
+        except Exception as err:
+            logger.error(f"Failed to create initial evaluation record for query {query_log_id}: {err}")
+
+        # Launch background LLM-as-a-Judge task
         asyncio.create_task(
             cls._evaluate_and_save(
+                eval_id=eval_id,
                 query_log_id=query_log_id,
                 tenant_id=tenant_id,
                 question=question,
@@ -79,6 +108,7 @@ class RagasEvaluatorService:
                 model_name=model_name,
             )
         )
+        return eval_id or ""
 
     @classmethod
     async def evaluate_query_sync(
@@ -91,7 +121,17 @@ class RagasEvaluatorService:
         model_name: str,
     ) -> Evaluation:
         """Runs LLM-as-a-Judge evaluation synchronously (for manual API triggers)."""
+        eval_id = await cls.evaluate_query_async(
+            query_log_id=query_log_id,
+            tenant_id=tenant_id,
+            question=question,
+            contexts=contexts,
+            answer=answer,
+            model_name=model_name,
+        )
+        # Wait for calculation to finish for synchronous return
         return await cls._evaluate_and_save(
+            eval_id=eval_id,
             query_log_id=query_log_id,
             tenant_id=tenant_id,
             question=question,
@@ -103,6 +143,7 @@ class RagasEvaluatorService:
     @classmethod
     async def _evaluate_and_save(
         cls,
+        eval_id: str | None,
         query_log_id: str,
         tenant_id: str,
         question: str,
@@ -174,32 +215,59 @@ class RagasEvaluatorService:
                 (faithfulness + answer_relevancy + context_precision + context_recall) / 4, 4
             )
 
-            # Persist to DB with fresh session in background
+            # Persist evaluation result to DB
             async with AsyncSessionLocal() as db:
-                eval_entry = Evaluation(
-                    tenant_id=tenant_id,
-                    query_log_id=query_log_id,
-                    faithfulness=faithfulness,
-                    answer_relevancy=answer_relevancy,
-                    context_precision=context_precision,
-                    context_recall=context_recall,
-                    overall_score=overall,
-                    evaluation_metadata={
-                        "evaluator": "ragas_llm_judge",
-                        "model": model_name,
-                        "reasoning": reasoning,
-                    },
-                )
-                db.add(eval_entry)
+                eval_obj = None
+                if eval_id:
+                    res = await db.execute(select(Evaluation).where(Evaluation.id == eval_id))
+                    eval_obj = res.scalar_one_or_none()
+
+                if not eval_obj:
+                    eval_obj = Evaluation(
+                        tenant_id=tenant_id,
+                        query_log_id=query_log_id,
+                    )
+                    db.add(eval_obj)
+
+                eval_obj.status = "COMPLETED"
+                eval_obj.faithfulness = faithfulness
+                eval_obj.answer_relevancy = answer_relevancy
+                eval_obj.context_precision = context_precision
+                eval_obj.context_recall = context_recall
+                eval_obj.overall_score = overall
+                eval_obj.evaluation_metadata = {
+                    "evaluator": "ragas_llm_judge",
+                    "model": model_name,
+                    "reasoning": reasoning,
+                    "step": "Completed",
+                }
+
                 await db.commit()
-                await db.refresh(eval_entry)
+                await db.refresh(eval_obj)
                 logger.info(
-                    f"Ragas LLM-as-a-Judge evaluation saved for query {query_log_id}: "
+                    f"Ragas LLM-as-a-Judge evaluation completed for query {query_log_id}: "
                     f"overall={overall} (faithfulness={faithfulness}, relevancy={answer_relevancy}, "
                     f"precision={context_precision}, recall={context_recall}) using model {model_name}"
                 )
-                return eval_entry
+                return eval_obj
 
         except Exception as e:
             logger.error(f"Error executing Ragas LLM-as-a-Judge evaluation for query {query_log_id}: {e}")
+            # Mark status as FAILED in DB
+            if eval_id:
+                try:
+                    async with AsyncSessionLocal() as db:
+                        res = await db.execute(select(Evaluation).where(Evaluation.id == eval_id))
+                        failed_obj = res.scalar_one_or_none()
+                        if failed_obj:
+                            failed_obj.status = "FAILED"
+                            failed_obj.evaluation_metadata = {
+                                "evaluator": "ragas_llm_judge",
+                                "model": model_name,
+                                "error": str(e),
+                                "step": "Evaluation failed",
+                            }
+                            await db.commit()
+                except Exception as db_err:
+                    logger.error(f"Failed to update evaluation status to FAILED: {db_err}")
             raise

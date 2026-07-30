@@ -9,6 +9,7 @@ class EvaluationResponse(BaseModel):
     id: str
     query_log_id: str | None = None
     question: str | None = None
+    status: str = "COMPLETED"
     faithfulness: float | None = None
     answer_relevancy: float | None = None
     context_precision: float | None = None

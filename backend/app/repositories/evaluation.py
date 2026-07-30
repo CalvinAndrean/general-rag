@@ -39,6 +39,7 @@ class EvaluationRepository:
                     "id": eval_obj.id,
                     "query_log_id": eval_obj.query_log_id,
                     "question": question,
+                    "status": getattr(eval_obj, "status", "COMPLETED") or "COMPLETED",
                     "faithfulness": float(eval_obj.faithfulness) if eval_obj.faithfulness else None,
                     "answer_relevancy": float(eval_obj.answer_relevancy)
                     if eval_obj.answer_relevancy

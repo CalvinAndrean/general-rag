@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
+import json
 
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import StreamingResponse
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
@@ -43,6 +46,43 @@ async def run_query_evaluation(
         model_name=model_name,
     )
     return ResponseEnvelope(data=EvaluationResponse.model_validate(eval_obj))
+
+
+@router.get("/stream")
+async def stream_evaluations(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Server-Sent Events (SSE) streaming real-time evaluation updates to the client."""
+
+    async def event_generator():
+        repo = EvaluationRepository(db)
+        while True:
+            try:
+                items = await repo.list_by_tenant(user.tenant_id, limit=30)
+                summary_dict = await repo.get_summary(user.tenant_id)
+                payload = {
+                    "type": "evaluations_update",
+                    "data": items,
+                    "summary": summary_dict,
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                await asyncio.sleep(2)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                await asyncio.sleep(4)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/", response_model=ResponseEnvelope[list[EvaluationResponse]])

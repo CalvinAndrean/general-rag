@@ -283,6 +283,52 @@ export async function fetchEvaluationSummary() {
   return json.data;
 }
 
+export function subscribeEvaluationStream(onUpdate, onError) {
+  const controller = new AbortController();
+  const signal = controller.signal;
+
+  (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/evaluations/stream`, {
+        headers: authHeaders(),
+        signal,
+      });
+      if (!res.ok) throw new Error(`Stream failed (${res.status})`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() || "";
+
+        for (const block of blocks) {
+          for (const line of block.split("\n")) {
+            if (line.startsWith("data: ")) {
+              try {
+                const payload = JSON.parse(line.slice(6).trim());
+                if (payload.type === "evaluations_update" && onUpdate) {
+                  onUpdate(payload);
+                }
+              } catch {
+                /* ignore partial JSON */
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err.name !== "AbortError" && onError) onError(err);
+    }
+  })();
+
+  return () => controller.abort();
+}
+
 // ── Analytics ──
 
 export async function fetchTopQuestions() {
