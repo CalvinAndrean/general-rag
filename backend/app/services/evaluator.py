@@ -192,20 +192,38 @@ class RagasEvaluatorService:
             context_recall = 0.85
             reasoning = "Evaluation completed by LLM-as-a-Judge."
 
-            # Attempt parsing JSON response
+            # Robust JSON extraction handling preamble/thinking text from LLM models
             if raw_response:
                 try:
+                    data = None
                     clean_res = raw_response.strip()
-                    if clean_res.startswith("```"):
-                        clean_res = re.sub(r"^```(?:json)?\s*", "", clean_res, flags=re.IGNORECASE)
-                        clean_res = re.sub(r"\s*```$", "", clean_res)
 
-                    data = json.loads(clean_res)
-                    faithfulness = cls._clamp_score(data.get("faithfulness"), 0.85)
-                    answer_relevancy = cls._clamp_score(data.get("answer_relevancy"), 0.85)
-                    context_precision = cls._clamp_score(data.get("context_precision"), 0.85)
-                    context_recall = cls._clamp_score(data.get("context_recall"), 0.85)
-                    reasoning = str(data.get("reasoning") or data.get("explanation") or reasoning)
+                    # 1. First try direct json.loads
+                    try:
+                        data = json.loads(clean_res)
+                    except json.JSONDecodeError:
+                        # 2. Try stripping markdown code block fences if present
+                        if "```" in clean_res:
+                            fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_res, re.DOTALL | re.IGNORECASE)
+                            if fence_match:
+                                data = json.loads(fence_match.group(1).strip())
+
+                        # 3. Fallback regex to capture any JSON object containing "faithfulness"
+                        if not data:
+                            json_match = re.search(r"\{[^{}]*\"faithfulness\"[^{}]*\}", clean_res, re.DOTALL)
+                            if not json_match:
+                                json_match = re.search(r"\{.*\}", clean_res, re.DOTALL)
+                            if json_match:
+                                data = json.loads(json_match.group(0).strip())
+
+                    if isinstance(data, dict):
+                        faithfulness = cls._clamp_score(data.get("faithfulness"), 0.85)
+                        answer_relevancy = cls._clamp_score(data.get("answer_relevancy"), 0.85)
+                        context_precision = cls._clamp_score(data.get("context_precision"), 0.85)
+                        context_recall = cls._clamp_score(data.get("context_recall"), 0.85)
+                        reasoning = str(data.get("reasoning") or data.get("explanation") or reasoning)
+                    else:
+                        logger.warning(f"Parsed JSON is not a dictionary. Raw: {raw_response[:200]}")
                 except Exception as parse_err:
                     logger.warning(
                         f"Failed to parse LLM judge JSON response: {parse_err}. Raw: {raw_response[:200]}"
