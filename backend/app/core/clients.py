@@ -423,6 +423,22 @@ class OpenRouterClient:
             logger.error(f"LLM streaming failure: {e}")
             raise AppException(message=f"LLM provider failure: {e!s}", code="LLM_FAILURE")
 
+    async def get_chat_completion(
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int = 600,
+    ) -> str:
+        """Non-streaming completion for LLM evaluation and structured tasks."""
+        full_text = []
+        async for item_type, item_data in self.stream_chat_completion(
+            messages, model=model, temperature=temperature, max_tokens=max_tokens
+        ):
+            if item_type == "token" and isinstance(item_data, str):
+                full_text.append(item_data)
+        return "".join(full_text).strip()
+
 
 s3_client = S3Client()
 ocr_client = MistralOCRClient()

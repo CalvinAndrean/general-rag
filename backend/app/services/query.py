@@ -1,6 +1,5 @@
 import json
 import logging
-import random
 import re
 import time
 from collections.abc import AsyncGenerator
@@ -20,6 +19,7 @@ from app.models.query_log import QueryLog
 from app.models.tenant_settings import TenantSettings
 from app.repositories.document import DocumentRepository
 from app.schemas.query import QueryRequest, QueryResponse, SourceCitation
+from app.services.evaluator import RagasEvaluatorService
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +239,9 @@ class QueryService:
                 latency_ms=latency_ms,
                 top_k=request.top_k,
                 sources_count=len(citations),
+                context_snippets=[
+                    c.get("content", "") for c in context_snippets if isinstance(c, dict)
+                ],
             )
 
         return QueryResponse(answer=answer, sources=citations)
@@ -372,6 +375,9 @@ class QueryService:
                 latency_ms=latency_ms,
                 top_k=request.top_k,
                 sources_count=len(citations),
+                context_snippets=[
+                    c.get("content", "") for c in context_snippets if isinstance(c, dict)
+                ],
             )
 
         # 3. Send source citations event
@@ -390,6 +396,7 @@ class QueryService:
         latency_ms: int,
         top_k: int,
         sources_count: int,
+        context_snippets: list[str] | None = None,
     ):
         try:
             prompt_tokens = usage_payload.get("prompt_tokens") or ((len(question) // 4) + 350)
@@ -416,31 +423,19 @@ class QueryService:
                 sources_count=sources_count,
             )
             db.add(q_log)
-            await db.flush()
-
-            # Auto-generate Ragas quality score evaluation
-            faithfulness = round(random.uniform(0.82, 0.98), 4)
-            answer_relevancy = round(random.uniform(0.85, 0.99), 4)
-            context_precision = round(random.uniform(0.78, 0.96), 4)
-            context_recall = round(random.uniform(0.80, 0.97), 4)
-            overall = round(
-                (faithfulness + answer_relevancy + context_precision + context_recall) / 4, 4
-            )
-
-            eval_entry = Evaluation(
-                tenant_id=tenant_id,
-                query_log_id=q_log.id,
-                faithfulness=faithfulness,
-                answer_relevancy=answer_relevancy,
-                context_precision=context_precision,
-                context_recall=context_recall,
-                overall_score=overall,
-                evaluation_metadata={"evaluator": "ragas_v0.2"},
-            )
-            db.add(eval_entry)
             await db.commit()
+
+            # Trigger real asynchronous Ragas LLM-as-a-Judge evaluation in background
+            await RagasEvaluatorService.evaluate_query_async(
+                query_log_id=q_log.id,
+                tenant_id=tenant_id,
+                question=question,
+                contexts=context_snippets or [],
+                answer=answer,
+                model_name=model_name,
+            )
         except Exception as e:
-            logger.error(f"Failed to log query and evaluation: {e}")
+            logger.error(f"Failed to log query and trigger evaluation: {e}")
 
     async def _retrieve_relevant_chunks(self, question: str, top_k: int):
         if not question.strip():

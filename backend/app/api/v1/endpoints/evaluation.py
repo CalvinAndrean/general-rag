@@ -1,16 +1,17 @@
-"""Ragas-style evaluation API endpoints."""
-
-import random
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.core.exceptions import NotFoundError
 from app.models.auth import User
+from app.models.query_log import QueryLog
 from app.repositories.evaluation import EvaluationRepository
 from app.schemas.common import ResponseEnvelope
 from app.schemas.evaluation import EvaluationResponse, EvaluationSummary, RunEvaluationRequest
+from app.services.evaluator import RagasEvaluatorService
 
 router = APIRouter()
 
@@ -22,27 +23,25 @@ async def run_query_evaluation(
     db: AsyncSession = Depends(get_db),
 ):
     """Run Ragas quality metrics evaluation on a recorded query log."""
-    repo = EvaluationRepository(db)
+    res = await db.execute(
+        select(QueryLog).where(
+            QueryLog.id == request.query_log_id, QueryLog.tenant_id == user.tenant_id
+        )
+    )
+    query_log = res.scalar_one_or_none()
+    if not query_log:
+        raise NotFoundError("Query log entry not found")
 
-    # Compute/simulate Ragas metrics for faithfulness, relevancy, precision, recall
-    faithfulness = round(random.uniform(0.75, 0.98), 4)
-    answer_relevancy = round(random.uniform(0.80, 0.99), 4)
-    context_precision = round(random.uniform(0.70, 0.95), 4)
-    context_recall = round(random.uniform(0.75, 0.96), 4)
-    overall = round((faithfulness + answer_relevancy + context_precision + context_recall) / 4, 4)
+    model_name = query_log.model_name or "anthropic/claude-3.5-sonnet"
 
-    eval_data = {
-        "tenant_id": user.tenant_id,
-        "query_log_id": request.query_log_id,
-        "faithfulness": faithfulness,
-        "answer_relevancy": answer_relevancy,
-        "context_precision": context_precision,
-        "context_recall": context_recall,
-        "overall_score": overall,
-        "evaluation_metadata": {"evaluator": "ragas_v0.2"},
-    }
-
-    eval_obj = await repo.create(eval_data)
+    eval_obj = await RagasEvaluatorService.evaluate_query_sync(
+        query_log_id=query_log.id,
+        tenant_id=user.tenant_id,
+        question=query_log.question,
+        contexts=[],
+        answer=query_log.answer or "",
+        model_name=model_name,
+    )
     return ResponseEnvelope(data=EvaluationResponse.model_validate(eval_obj))
 
 
