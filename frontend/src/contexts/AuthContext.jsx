@@ -11,9 +11,17 @@ export function AuthProvider({ children }) {
 
   const saveTokens = (access, refresh) => {
     setToken(access);
-    setRefreshToken(refresh);
-    localStorage.setItem("rag_token", access);
-    localStorage.setItem("rag_refresh", refresh);
+    setRefreshToken(refresh || null);
+    if (access) {
+      localStorage.setItem("rag_token", access);
+    } else {
+      localStorage.removeItem("rag_token");
+    }
+    if (refresh) {
+      localStorage.setItem("rag_refresh", refresh);
+    } else {
+      localStorage.removeItem("rag_refresh");
+    }
   };
 
   const clearAuth = useCallback(() => {
@@ -31,7 +39,7 @@ export function AuthProvider({ children }) {
       });
       if (!res.ok) throw new Error("Unauthorized");
       const json = await res.json();
-      setUser(json.data);
+      setUser(json.data || json);
       return true;
     } catch {
       return false;
@@ -48,8 +56,9 @@ export function AuthProvider({ children }) {
       });
       if (!res.ok) throw new Error("Refresh failed");
       const json = await res.json();
-      saveTokens(json.data.access_token, json.data.refresh_token);
-      await fetchMe(json.data.access_token);
+      const tokenData = json.data || json;
+      saveTokens(tokenData.access_token, tokenData.refresh_token);
+      await fetchMe(tokenData.access_token);
       return true;
     } catch {
       clearAuth();
@@ -79,8 +88,12 @@ export function AuthProvider({ children }) {
       throw new Error(err.error?.message || "Login failed");
     }
     const json = await res.json();
-    saveTokens(json.data.access_token, json.data.refresh_token);
-    await fetchMe(json.data.access_token);
+    const tokenData = json.data || json;
+    if (!tokenData?.access_token) {
+      throw new Error("No access token received from server");
+    }
+    saveTokens(tokenData.access_token, tokenData.refresh_token);
+    await fetchMe(tokenData.access_token);
   };
 
   const register = async ({ email, password, full_name, tenant_name }) => {
@@ -94,8 +107,9 @@ export function AuthProvider({ children }) {
       throw new Error(err.error?.message || "Registration failed");
     }
     const json = await res.json();
-    saveTokens(json.data.access_token, json.data.refresh_token);
-    await fetchMe(json.data.access_token);
+    const tokenData = json.data || json;
+    saveTokens(tokenData.access_token, tokenData.refresh_token);
+    await fetchMe(tokenData.access_token);
   };
 
   const joinTenant = async ({ email, password, full_name, tenant_code }) => {
@@ -109,8 +123,9 @@ export function AuthProvider({ children }) {
       throw new Error(err.error?.message || "Join failed");
     }
     const json = await res.json();
-    saveTokens(json.data.access_token, json.data.refresh_token);
-    await fetchMe(json.data.access_token);
+    const tokenData = json.data || json;
+    saveTokens(tokenData.access_token, tokenData.refresh_token);
+    await fetchMe(tokenData.access_token);
   };
 
   const logout = () => clearAuth();
