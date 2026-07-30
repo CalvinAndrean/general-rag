@@ -1,9 +1,9 @@
 """Tenant settings endpoints: get/update model config, list OpenRouter models."""
 
 import logging
-import time
 
 import httpx
+from async_lru import alru_cache
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,10 +17,6 @@ from app.schemas.settings import OpenRouterModel, TenantSettingsResponse, Tenant
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-_MODELS_CACHE: list[OpenRouterModel] | None = None
-_MODELS_CACHE_TIME: float = 0.0
-_MODELS_CACHE_TTL: float = 300.0  # 5 minutes
 
 
 @router.get("/", response_model=ResponseEnvelope[TenantSettingsResponse])
@@ -75,43 +71,41 @@ async def update_settings(
     )
 
 
+@alru_cache(maxsize=1, ttl=300.0)
+async def _fetch_openrouter_models_cached() -> list[OpenRouterModel]:
+    """Internal function to fetch and cache OpenRouter models."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            "https://openrouter.ai/api/v1/models",
+            headers={"Authorization": f"Bearer {app_settings.OPENROUTER_API_KEY}"},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    models = []
+    for m in data.get("data", []):
+        pricing = m.get("pricing", {})
+        top_provider = m.get("top_provider") or {}
+        max_out = top_provider.get("max_completion_tokens") or m.get("max_completion_tokens")
+
+        models.append(
+            OpenRouterModel(
+                id=m.get("id", ""),
+                name=m.get("name", m.get("id", "")),
+                context_length=m.get("context_length"),
+                max_output_tokens=max_out,
+                pricing_prompt=pricing.get("prompt"),
+                pricing_completion=pricing.get("completion"),
+            )
+        )
+    return models
+
+
 @router.get("/models", response_model=ResponseEnvelope[list[OpenRouterModel]])
 async def list_openrouter_models(user: User = Depends(get_current_user)):
     """Fetch available models from the OpenRouter API."""
-    global _MODELS_CACHE, _MODELS_CACHE_TIME
-
-    current_time = time.time()
-    if _MODELS_CACHE is not None and (current_time - _MODELS_CACHE_TIME) < _MODELS_CACHE_TTL:
-        return ResponseEnvelope(data=_MODELS_CACHE)
-
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(
-                "https://openrouter.ai/api/v1/models",
-                headers={"Authorization": f"Bearer {app_settings.OPENROUTER_API_KEY}"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-        models = []
-        for m in data.get("data", []):
-            pricing = m.get("pricing", {})
-            top_provider = m.get("top_provider") or {}
-            max_out = top_provider.get("max_completion_tokens") or m.get("max_completion_tokens")
-
-            models.append(
-                OpenRouterModel(
-                    id=m.get("id", ""),
-                    name=m.get("name", m.get("id", "")),
-                    context_length=m.get("context_length"),
-                    max_output_tokens=max_out,
-                    pricing_prompt=pricing.get("prompt"),
-                    pricing_completion=pricing.get("completion"),
-                )
-            )
-
-        _MODELS_CACHE = models
-        _MODELS_CACHE_TIME = current_time
+        models = await _fetch_openrouter_models_cached()
         return ResponseEnvelope(data=models)
     except Exception as e:
         logger.warning(f"Failed to fetch OpenRouter models: {e}")
