@@ -42,7 +42,8 @@ async def get_dashboard_stats(
 
     # Total tokens count
     token_stmt = select(func.coalesce(func.sum(QueryLog.total_tokens), 0)).where(
-        QueryLog.tenant_id == tenant_id
+        QueryLog.tenant_id == tenant_id,
+        QueryLog.log_type == "query",
     )
     token_res = await db.execute(token_stmt)
     total_tokens = int(token_res.scalar() or 0)

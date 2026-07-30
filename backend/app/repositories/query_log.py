@@ -25,6 +25,7 @@ class QueryLogRepository:
         result = await self.db.execute(
             select(func.count(QueryLog.id)).where(
                 QueryLog.tenant_id == tenant_id,
+                QueryLog.log_type == "query",
                 cast(QueryLog.created_at, Date) == today,
             )
         )
@@ -32,7 +33,10 @@ class QueryLogRepository:
 
     async def get_total_count(self, tenant_id: str) -> int:
         result = await self.db.execute(
-            select(func.count(QueryLog.id)).where(QueryLog.tenant_id == tenant_id)
+            select(func.count(QueryLog.id)).where(
+                QueryLog.tenant_id == tenant_id,
+                QueryLog.log_type == "query",
+            )
         )
         return result.scalar() or 0
 
@@ -42,6 +46,7 @@ class QueryLogRepository:
         result = await self.db.execute(
             select(func.coalesce(func.sum(QueryLog.estimated_cost), 0)).where(
                 QueryLog.tenant_id == tenant_id,
+                QueryLog.log_type == "query",
                 QueryLog.created_at >= first_of_month,
             )
         )
@@ -66,6 +71,7 @@ class QueryLogRepository:
             )
             .where(
                 QueryLog.tenant_id == tenant_id,
+                QueryLog.log_type == "query",
                 cast(QueryLog.created_at, Date) >= start_date,
                 cast(QueryLog.created_at, Date) <= end_date,
             )
@@ -99,7 +105,10 @@ class QueryLogRepository:
             func.count(QueryLog.id).label("query_count"),
             func.coalesce(func.sum(QueryLog.total_tokens), 0).label("total_tokens"),
             func.coalesce(func.sum(QueryLog.estimated_cost), 0).label("estimated_cost"),
-        ).where(QueryLog.tenant_id == tenant_id)
+        ).where(
+            QueryLog.tenant_id == tenant_id,
+            QueryLog.log_type == "query",
+        )
 
         if start_date:
             stmt = stmt.where(cast(QueryLog.created_at, Date) >= start_date)
