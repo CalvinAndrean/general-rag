@@ -51,10 +51,10 @@ uv sync
 
 ### Start Development Server:
 ```bash
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 1002
 ```
-- Swagger API Docs: `http://localhost:8000/api/v1/docs`
-- Health Check: `http://localhost:8000/api/v1/health`
+- Swagger API Docs: `http://localhost:1002/api/v1/docs`
+- Health Check: `http://localhost:1002/api/v1/health`
 
 ### Run Pytest Test Suite:
 ```bash

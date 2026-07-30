@@ -8,12 +8,12 @@ services:
     container_name: general-rag-backend
     restart: always
     ports:
-      - "8000:8000"
+      - "1002:1002"
     env_file:
       - ./backend/.env
     environment:
       - ENVIRONMENT=production
-      - CORS_ORIGINS=["http://localhost:1001","http://127.0.0.1:1001","http://localhost:3000","http://localhost:8000"]
+      - CORS_ORIGINS=["https://cognava.calvinandrean.web.id","http://localhost:1001","http://127.0.0.1:1001","http://localhost:3000","http://localhost:1002","http://127.0.0.1:1002"]
     networks:
       - rag-network
 

@@ -25,8 +25,8 @@ RUN uv sync --frozen --no-dev
 # Copy application source code
 COPY . .
 
-# Expose backend port
-EXPOSE 8000
+# Expose backend port 1002
+EXPOSE 1002
 
-# Start FastAPI application with Uvicorn
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start FastAPI application with Uvicorn on port 1002
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "1002"]

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 
-const API = import.meta.env.PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API = import.meta.env.PUBLIC_API_URL || "http://localhost:1002/api/v1";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {

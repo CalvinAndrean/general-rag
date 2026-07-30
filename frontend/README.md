@@ -11,7 +11,7 @@ cp .env.example .env
 ```
 Ensure `PUBLIC_API_URL` points to your backend:
 ```env
-PUBLIC_API_URL=http://localhost:8000/api/v1
+PUBLIC_API_URL=http://localhost:1002/api/v1
 ```
 
 ### 2. Install Dependencies & Start Dev Server

@@ -4,7 +4,7 @@
  */
 
 const API_BASE_URL =
-  import.meta.env.PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  import.meta.env.PUBLIC_API_URL || "http://localhost:1002/api/v1";
 
 function getToken() {
   return localStorage.getItem("rag_token");
