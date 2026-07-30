@@ -34,43 +34,45 @@ export function DocumentUpload({ folders = [], folderId, onFolderChange, onUploa
 
     setUploadQueue((prev) => [...initialQueue, ...prev]);
 
-    for (const item of initialQueue) {
-      setUploadQueue((prev) =>
-        prev.map((q) => (q.id === item.id ? { ...q, status: "uploading", progress: 5 } : q))
-      );
+    await Promise.all(
+      initialQueue.map(async (item) => {
+        setUploadQueue((prev) =>
+          prev.map((q) => (q.id === item.id ? { ...q, status: "uploading", progress: 5 } : q))
+        );
 
-      try {
-        await uploadDocument(item.file, targetFolderId, (percent) => {
+        try {
+          await uploadDocument(item.file, targetFolderId, (percent) => {
+            setUploadQueue((prev) =>
+              prev.map((q) =>
+                q.id === item.id
+                  ? {
+                      ...q,
+                      progress: percent,
+                      status: percent >= 100 ? "processing" : "uploading",
+                    }
+                  : q
+              )
+            );
+          });
+
+          setUploadQueue((prev) =>
+            prev.map((q) =>
+              q.id === item.id ? { ...q, status: "completed", progress: 100 } : q
+            )
+          );
+          toast.success(`Successfully uploaded "${item.name}"`);
+        } catch (err) {
           setUploadQueue((prev) =>
             prev.map((q) =>
               q.id === item.id
-                ? {
-                    ...q,
-                    progress: percent,
-                    status: percent >= 100 ? "processing" : "uploading",
-                  }
+                ? { ...q, status: "failed", error: err.message || "Upload failed" }
                 : q
             )
           );
-        });
-
-        setUploadQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id ? { ...q, status: "completed", progress: 100 } : q
-          )
-        );
-        toast.success(`Successfully uploaded "${item.name}"`);
-      } catch (err) {
-        setUploadQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id
-              ? { ...q, status: "failed", error: err.message || "Upload failed" }
-              : q
-          )
-        );
-        toast.error(`Failed to upload "${item.name}": ${err.message}`);
-      }
-    }
+          toast.error(`Failed to upload "${item.name}": ${err.message}`);
+        }
+      })
+    );
 
     if (onUploadSuccess) {
       await onUploadSuccess();
