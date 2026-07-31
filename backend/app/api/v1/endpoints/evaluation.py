@@ -50,6 +50,7 @@ async def run_query_evaluation(
 
 @router.get("/stream")
 async def stream_evaluations(
+    type: str | None = Query(None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -59,8 +60,8 @@ async def stream_evaluations(
         repo = EvaluationRepository(db)
         while True:
             try:
-                items = await repo.list_by_tenant(user.tenant_id, limit=30)
-                summary_dict = await repo.get_summary(user.tenant_id)
+                items = await repo.list_by_tenant(user.tenant_id, evaluation_type=type, limit=50)
+                summary_dict = await repo.get_summary(user.tenant_id, evaluation_type=type)
                 payload = {
                     "type": "evaluations_update",
                     "data": items,

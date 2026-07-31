@@ -35,12 +35,10 @@ export function EvaluationPage() {
 
     // Subscribe to SSE stream for live updates
     unsubscribe = subscribeEvaluationStream(
+      activeTab,
       (payload) => {
         if (payload?.data) {
-          const filteredData = payload.data.filter(
-            (item) => item.evaluation_type === activeTab
-          );
-          setEvaluations(filteredData);
+          setEvaluations(payload.data);
         }
         if (payload?.summary) setSummary(payload.summary);
         setLiveStreamActive(true);

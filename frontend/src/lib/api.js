@@ -307,13 +307,25 @@ export async function fetchEvaluationSummary(type = null) {
   return json.data;
 }
 
-export function subscribeEvaluationStream(onUpdate, onError) {
+export function subscribeEvaluationStream(type = null, onUpdate = null, onError = null) {
+  // Support both (onUpdate, onError) signature and (type, onUpdate, onError)
+  let actualType = type;
+  let actualOnUpdate = onUpdate;
+  let actualOnError = onError;
+
+  if (typeof type === "function") {
+    actualType = null;
+    actualOnUpdate = type;
+    actualOnError = onUpdate;
+  }
+
   const controller = new AbortController();
   const signal = controller.signal;
 
   (async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/evaluations/stream`, {
+      const qs = actualType ? `?type=${encodeURIComponent(actualType)}` : "";
+      const res = await fetch(`${API_BASE_URL}/evaluations/stream${qs}`, {
         headers: authHeaders(),
         signal,
       });
@@ -335,8 +347,8 @@ export function subscribeEvaluationStream(onUpdate, onError) {
             if (line.startsWith("data: ")) {
               try {
                 const payload = JSON.parse(line.slice(6).trim());
-                if (payload.type === "evaluations_update" && onUpdate) {
-                  onUpdate(payload);
+                if (payload.type === "evaluations_update" && actualOnUpdate) {
+                  actualOnUpdate(payload);
                 }
               } catch {
                 /* ignore partial JSON */
@@ -346,7 +358,9 @@ export function subscribeEvaluationStream(onUpdate, onError) {
         }
       }
     } catch (err) {
-      if (err.name !== "AbortError" && onError) onError(err);
+      if (err.name !== "AbortError" && actualOnError) {
+        actualOnError(err);
+      }
     }
   })();
 
