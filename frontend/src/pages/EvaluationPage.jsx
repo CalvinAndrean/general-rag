@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Eye, FlaskConical, HelpCircle, Loader2, MessageSquare, ShieldAlert, X } from "lucide-react";
+import { BookOpen, Eye, FlaskConical, HelpCircle, Loader2, MessageSquare, ShieldAlert, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { fetchEvaluations, fetchEvaluationSummary, subscribeEvaluationStream } from "../lib/api";
 import { CardSkeleton, TableSkeleton } from "../components/ui/Skeleton";
@@ -296,9 +296,9 @@ export function EvaluationPage() {
                       <td>
                         <button
                           onClick={() => setSelectedEval(ev)}
-                          className="skeuo-button bg-gray-50 hover:bg-gray-100 text-[11px] font-semibold text-[var(--text-secondary)] px-2.5 py-1 rounded-lg border border-[var(--border-light)] flex items-center gap-1 transition-all cursor-pointer"
+                          className="skeuo-btn skeuo-btn-sm text-[11px] font-bold px-3 py-1 cursor-pointer flex items-center gap-1.5"
                         >
-                          <Eye className="h-3 w-3 text-[var(--info)]" />
+                          <Eye className="h-3.5 w-3.5 text-blue-600" />
                           View
                         </button>
                       </td>
@@ -325,101 +325,117 @@ export function EvaluationPage() {
         </>
       )}
 
-      {/* Reasoning Modal Popup */}
+      {/* 3D Skeuomorphic Reasoning Modal Popup */}
       {selectedEval && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl border border-[var(--border-light)] shadow-2xl w-full max-w-lg overflow-hidden space-y-4 p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-3">
-              <div className="flex items-center gap-2">
-                <FlaskConical className="h-5 w-5 text-[var(--info)]" />
-                <h3 className="text-sm font-bold text-[var(--text-heading)]">
-                  Evaluation LLM Reasoning
-                </h3>
+        <div
+          className="skeuo-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedEval(null);
+          }}
+        >
+          <div className="skeuo-modal-card">
+            {/* Glossy Metallic Header */}
+            <div className="skeuo-modal-header">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center shadow-xs">
+                  <FlaskConical className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 leading-none">
+                    LLM Evaluation Reasoning
+                  </h3>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    LLM-as-a-Judge Quality Insights
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedEval(null)}
-                className="p-1 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                className="skeuo-btn skeuo-btn-sm p-1.5 text-slate-500 hover:text-slate-800 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Query & Intent Overview */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                User Question / Input
-              </span>
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-[var(--text-heading)] font-medium">
-                {selectedEval.question || "N/A"}
-              </div>
-            </div>
-
-            {/* Badges & Scores */}
-            <div className="flex items-center justify-between gap-2 p-3 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-light)]">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-secondary)] font-medium">Intent:</span>
-                {renderIntentBadge(selectedEval.intent)}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-secondary)] font-medium">Overall Score:</span>
-                {formatScore(selectedEval.overall_score, selectedEval.status)}
-              </div>
-            </div>
-
-            {/* Metrics Breakdown */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                Scores Breakdown
-              </span>
-              {selectedEval.evaluation_type === "knowledge_query" ? (
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
-                    <span className="text-[var(--text-secondary)] font-medium">Faithfulness:</span>
-                    {formatScore(selectedEval.faithfulness, selectedEval.status)}
-                  </div>
-                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
-                    <span className="text-[var(--text-secondary)] font-medium">Answer Relevancy:</span>
-                    {formatScore(selectedEval.answer_relevancy, selectedEval.status)}
-                  </div>
-                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
-                    <span className="text-[var(--text-secondary)] font-medium">Context Precision:</span>
-                    {formatScore(selectedEval.context_precision, selectedEval.status)}
-                  </div>
-                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
-                    <span className="text-[var(--text-secondary)] font-medium">Context Recall:</span>
-                    {formatScore(selectedEval.context_recall, selectedEval.status)}
-                  </div>
+            {/* Modal Body */}
+            <div className="skeuo-modal-body">
+              {/* User Question */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  User Question / Input Prompt
+                </span>
+                <div className="p-3.5 bg-slate-900 text-slate-100 rounded-xl border border-slate-800 font-mono text-[12px] leading-relaxed shadow-inner">
+                  {selectedEval.question || "N/A"}
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
-                    <span className="text-[var(--text-secondary)] font-medium">Intent Accuracy:</span>
-                    {formatScore(selectedEval.faithfulness, selectedEval.status)}
-                  </div>
-                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
-                    <span className="text-[var(--text-secondary)] font-medium">Response Tone:</span>
-                    {formatScore(selectedEval.answer_relevancy, selectedEval.status)}
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
 
-            {/* LLM Judge Reasoning */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                LLM-as-a-Judge Reasoning
-              </span>
-              <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-xl text-xs text-[var(--text-heading)] leading-relaxed italic">
-                "{selectedEval.reasoning || "Evaluation completed successfully by LLM-as-a-Judge."}"
+              {/* Intent & Overall Score Summary Bar */}
+              <div className="flex items-center justify-between gap-2 p-3 bg-gradient-to-r from-slate-50 via-white to-slate-100 rounded-xl border border-slate-200 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-600 font-medium">Intent Flag:</span>
+                  {renderIntentBadge(selectedEval.intent)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-600 font-medium">Overall Score:</span>
+                  {formatScore(selectedEval.overall_score, selectedEval.status)}
+                </div>
+              </div>
+
+              {/* Metrics Breakdown */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  Detailed Metric Scores
+                </span>
+                {selectedEval.evaluation_type === "knowledge_query" ? (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-xs">
+                      <span className="text-slate-600 font-semibold">Faithfulness:</span>
+                      {formatScore(selectedEval.faithfulness, selectedEval.status)}
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-xs">
+                      <span className="text-slate-600 font-semibold">Answer Relevancy:</span>
+                      {formatScore(selectedEval.answer_relevancy, selectedEval.status)}
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-xs">
+                      <span className="text-slate-600 font-semibold">Context Precision:</span>
+                      {formatScore(selectedEval.context_precision, selectedEval.status)}
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-xs">
+                      <span className="text-slate-600 font-semibold">Context Recall:</span>
+                      {formatScore(selectedEval.context_recall, selectedEval.status)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-xs">
+                      <span className="text-slate-600 font-semibold">Intent Accuracy:</span>
+                      {formatScore(selectedEval.faithfulness, selectedEval.status)}
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-xs">
+                      <span className="text-slate-600 font-semibold">Response Tone:</span>
+                      {formatScore(selectedEval.answer_relevancy, selectedEval.status)}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* LLM Reasoning Explanation */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-blue-500" />
+                  LLM-as-a-Judge Reasoning & Explanation
+                </span>
+                <div className="p-4 bg-gradient-to-br from-blue-50/90 via-indigo-50/50 to-slate-50 border-l-4 border-blue-600 border border-blue-200 rounded-xl text-xs text-slate-800 leading-relaxed italic shadow-xs">
+                  "{selectedEval.reasoning || "Evaluation completed successfully by LLM-as-a-Judge."}"
+                </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-end pt-2">
+            {/* Modal Footer with 3D Primary Button */}
+            <div className="skeuo-modal-footer">
               <button
                 onClick={() => setSelectedEval(null)}
-                className="skeuo-button bg-[var(--info)] text-white font-semibold text-xs px-4 py-2 rounded-xl cursor-pointer shadow-xs"
+                className="skeuo-btn skeuo-btn-primary px-6 py-2 cursor-pointer"
               >
                 Close
               </button>
