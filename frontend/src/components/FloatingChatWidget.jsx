@@ -37,8 +37,14 @@ export function FloatingChatWidget({ indexedDocCount = 0 }) {
     setIsStreaming(true);
 
     try {
+      const historyPayload = messages
+        .filter((m) => m.content && !m.isStreaming)
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }));
+
       await streamQuery({
         question: userMessage.content,
+        chatHistory: historyPayload,
         topK: 4,
         onToken: (token) => {
           setMessages((prev) =>

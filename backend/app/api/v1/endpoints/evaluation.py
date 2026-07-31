@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
@@ -87,21 +87,23 @@ async def stream_evaluations(
 
 @router.get("/", response_model=ResponseEnvelope[list[EvaluationResponse]])
 async def list_evaluations(
+    type: str | None = Query(None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List evaluation runs for current tenant."""
+    """List evaluation runs for current tenant, optionally filtered by evaluation type (knowledge_query | intent_handling)."""
     repo = EvaluationRepository(db)
-    items = await repo.list_by_tenant(user.tenant_id)
+    items = await repo.list_by_tenant(user.tenant_id, evaluation_type=type)
     return ResponseEnvelope(data=[EvaluationResponse(**item) for item in items])
 
 
 @router.get("/summary", response_model=ResponseEnvelope[EvaluationSummary])
 async def get_evaluation_summary(
+    type: str | None = Query(None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get aggregated summary of average Ragas evaluation scores."""
+    """Get aggregated summary of average evaluation scores, optionally filtered by evaluation type."""
     repo = EvaluationRepository(db)
-    summary_dict = await repo.get_summary(user.tenant_id)
+    summary_dict = await repo.get_summary(user.tenant_id, evaluation_type=type)
     return ResponseEnvelope(data=EvaluationSummary(**summary_dict))

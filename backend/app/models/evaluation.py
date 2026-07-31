@@ -31,6 +31,20 @@ class Evaluation(Base, UUIDMixin):
     status: Mapped[str] = mapped_column(
         String(30), default="COMPLETED", server_default="COMPLETED", nullable=False, index=True
     )
+    intent: Mapped[str] = mapped_column(
+        String(50),
+        default="knowledge_query",
+        server_default="knowledge_query",
+        nullable=False,
+        index=True,
+    )
+    evaluation_type: Mapped[str] = mapped_column(
+        String(50),
+        default="knowledge_query",
+        server_default="knowledge_query",
+        nullable=False,
+        index=True,
+    )
     faithfulness: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
     answer_relevancy: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
     context_precision: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)

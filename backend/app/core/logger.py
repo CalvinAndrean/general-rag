@@ -279,7 +279,9 @@ class EvaluationLogger:
         from rich.syntax import Syntax
 
         preview = raw_text.strip()
-        syntax = Syntax(preview, "markdown" if "```" in preview else "json", theme="monokai", line_numbers=True)
+        syntax = Syntax(
+            preview, "markdown" if "```" in preview else "json", theme="monokai", line_numbers=True
+        )
         console.print(
             Panel(
                 syntax,
@@ -306,7 +308,7 @@ class EvaluationLogger:
         table.add_column("Quality Assessment", style="white")
 
         def _badge(val: float) -> str:
-            pct = int(round(val * 100))
+            pct = round(val * 100)
             if val >= 0.8:
                 return f"[bold green]{pct}% (Excellent)[/bold green]"
             if val >= 0.5:
@@ -317,7 +319,11 @@ class EvaluationLogger:
         table.add_row("Answer Relevancy", f"{answer_relevancy:.4f}", _badge(answer_relevancy))
         table.add_row("Context Precision", f"{context_precision:.4f}", _badge(context_precision))
         table.add_row("Context Recall", f"{context_recall:.4f}", _badge(context_recall))
-        table.add_row("OVERALL SCORE", f"[bold bright_green]{overall:.4f}[/bold bright_green]", _badge(overall))
+        table.add_row(
+            "OVERALL SCORE",
+            f"[bold bright_green]{overall:.4f}[/bold bright_green]",
+            _badge(overall),
+        )
 
         console.print(
             Panel(

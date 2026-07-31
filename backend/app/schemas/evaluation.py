@@ -10,6 +10,8 @@ class EvaluationResponse(BaseModel):
     query_log_id: str | None = None
     question: str | None = None
     status: str = "COMPLETED"
+    intent: str | None = "knowledge_query"
+    evaluation_type: str = "knowledge_query"
     faithfulness: float | None = None
     answer_relevancy: float | None = None
     context_precision: float | None = None

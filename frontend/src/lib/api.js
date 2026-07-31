@@ -131,12 +131,25 @@ export async function createFolder(name) {
 
 // ── RAG Query (streaming) ──
 
-export async function streamQuery({ question, topK = 4, onToken, onCitations, onError, onStatus }) {
+export async function streamQuery({
+  question,
+  chatHistory = null,
+  topK = 4,
+  onToken,
+  onCitations,
+  onError,
+  onStatus,
+}) {
   try {
+    const payload = { question, top_k: topK, stream: true };
+    if (chatHistory && Array.isArray(chatHistory) && chatHistory.length > 0) {
+      payload.chat_history = chatHistory;
+    }
+
     const res = await fetch(`${API_BASE_URL}/query/`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ question, top_k: topK, stream: true }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -280,14 +293,16 @@ export async function runEvaluation(queryLogId) {
   return json.data;
 }
 
-export async function fetchEvaluations() {
-  const res = await fetch(`${API_BASE_URL}/evaluations/`, { headers: authHeaders() });
+export async function fetchEvaluations(type = null) {
+  const qs = type ? `?type=${encodeURIComponent(type)}` : "";
+  const res = await fetch(`${API_BASE_URL}/evaluations/${qs}`, { headers: authHeaders() });
   const json = await handleResponse(res);
   return json.data;
 }
 
-export async function fetchEvaluationSummary() {
-  const res = await fetch(`${API_BASE_URL}/evaluations/summary`, { headers: authHeaders() });
+export async function fetchEvaluationSummary(type = null) {
+  const qs = type ? `?type=${encodeURIComponent(type)}` : "";
+  const res = await fetch(`${API_BASE_URL}/evaluations/summary${qs}`, { headers: authHeaders() });
   const json = await handleResponse(res);
   return json.data;
 }

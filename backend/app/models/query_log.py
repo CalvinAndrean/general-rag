@@ -36,6 +36,13 @@ class QueryLog(Base, UUIDMixin):
     log_type: Mapped[str] = mapped_column(
         String(20), default="query", server_default="query", nullable=False, index=True
     )
+    intent: Mapped[str] = mapped_column(
+        String(50),
+        default="knowledge_query",
+        server_default="knowledge_query",
+        nullable=False,
+        index=True,
+    )
     sources_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Use created_at from a simple column since we don't need updated_at

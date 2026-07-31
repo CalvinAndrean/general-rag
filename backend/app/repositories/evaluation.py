@@ -19,27 +19,37 @@ class EvaluationRepository:
         await self.db.flush()
         return evaluation
 
-    async def list_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
+    async def list_by_tenant(
+        self,
+        tenant_id: str,
+        evaluation_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
         stmt = (
             select(
                 Evaluation,
                 QueryLog.question,
+                QueryLog.intent.label("query_intent"),
             )
             .outerjoin(QueryLog, Evaluation.query_log_id == QueryLog.id)
             .where(Evaluation.tenant_id == tenant_id)
-            .order_by(Evaluation.created_at.desc())
-            .limit(limit)
-            .offset(offset)
         )
+        if evaluation_type:
+            stmt = stmt.where(Evaluation.evaluation_type == evaluation_type)
+
+        stmt = stmt.order_by(Evaluation.created_at.desc()).limit(limit).offset(offset)
         result = await self.db.execute(stmt)
         items = []
-        for eval_obj, question in result.all():
+        for eval_obj, question, query_intent in result.all():
             items.append(
                 {
                     "id": eval_obj.id,
                     "query_log_id": eval_obj.query_log_id,
                     "question": question,
                     "status": getattr(eval_obj, "status", "COMPLETED") or "COMPLETED",
+                    "intent": eval_obj.intent or query_intent or "knowledge_query",
+                    "evaluation_type": eval_obj.evaluation_type or "knowledge_query",
                     "faithfulness": float(eval_obj.faithfulness) if eval_obj.faithfulness else None,
                     "answer_relevancy": float(eval_obj.answer_relevancy)
                     if eval_obj.answer_relevancy
@@ -58,7 +68,7 @@ class EvaluationRepository:
             )
         return items
 
-    async def get_summary(self, tenant_id: str) -> dict:
+    async def get_summary(self, tenant_id: str, evaluation_type: str | None = None) -> dict:
         stmt = select(
             func.count(Evaluation.id).label("total"),
             func.avg(Evaluation.faithfulness).label("avg_faithfulness"),
@@ -67,6 +77,10 @@ class EvaluationRepository:
             func.avg(Evaluation.context_recall).label("avg_context_recall"),
             func.avg(Evaluation.overall_score).label("avg_overall_score"),
         ).where(Evaluation.tenant_id == tenant_id)
+
+        if evaluation_type:
+            stmt = stmt.where(Evaluation.evaluation_type == evaluation_type)
+
         result = await self.db.execute(stmt)
         row = result.one()
         return {

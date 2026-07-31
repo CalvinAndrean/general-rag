@@ -14,7 +14,6 @@ from app.core.exceptions import BadRequestError
 from app.core.logger import QueryLogger
 from app.core.prompts import format_intent_messages, format_rag_prompt
 from app.models.auth import User
-from app.models.evaluation import Evaluation
 from app.models.query_log import QueryLog
 from app.models.tenant_settings import TenantSettings
 from app.repositories.document import DocumentRepository
@@ -38,14 +37,20 @@ class QueryService:
         res = await db.execute(select(TenantSettings).where(TenantSettings.tenant_id == tenant_id))
         return res.scalar_one_or_none()
 
-    async def _classify_intent(self, question: str, model_name: str) -> str:
-        """Classify user prompt into 'greeting', 'out_of_scope', or 'knowledge_query' using LLM."""
+    async def _classify_intent(
+        self,
+        question: str,
+        model_name: str,
+        chat_history: list[dict] | None = None,
+        db: AsyncSession | None = None,
+    ) -> str:
+        """Classify user prompt into 'greeting', 'out_of_scope', 'unclear', or 'knowledge_query' using LLM."""
         if not question or not question.strip():
             return "greeting"
 
         q_lower = question.strip().lower()
 
-        # Fast heuristic check for pure simple greetings and identity questions
+        # Fast heuristic check for pure simple greetings
         PURE_GREETINGS = {
             "hi",
             "hello",
@@ -53,29 +58,13 @@ class QueryService:
             "pagi",
             "selamat pagi",
             "selamat siang",
-            "selamat sore",
             "selamat malam",
             "hey",
             "ping",
             "test",
             "tes",
-            "kamu siapa",
-            "siapa kamu",
-            "who are you",
-            "what can you do",
-            "apa kabar",
-            "apa kabarmu",
-            "kabarnya gimana",
-            "how are you",
-            "how do you do",
-            "terima kasih",
-            "makasih",
-            "thanks",
-            "thank you",
-            "bye",
-            "dadah",
         }
-        if q_lower in PURE_GREETINGS or q_lower.replace("?", "").strip() in PURE_GREETINGS:
+        if q_lower in PURE_GREETINGS:
             QueryLogger.log_intent_classification(question, "greeting (heuristic)", 0.0)
             return "greeting"
 
@@ -103,7 +92,9 @@ class QueryService:
             return "knowledge_query"
 
         intent_start = time.perf_counter()
-        classification_messages = format_intent_messages(question)
+        classification_messages = await format_intent_messages(
+            question, chat_history=chat_history, db=db
+        )
 
         try:
             raw_response = []
@@ -124,12 +115,12 @@ class QueryService:
                 parsed = json.loads(res_text)
                 if isinstance(parsed, dict) and "intent" in parsed:
                     val = str(parsed["intent"]).strip().lower()
-                    if val in ("greeting", "out_of_scope", "knowledge_query"):
+                    if val in ("greeting", "out_of_scope", "unclear", "knowledge_query"):
                         intent = val
             except Exception:
                 # 2. Fallback regex extraction for "intent": "XXX"
                 match = re.search(
-                    r'"intent"\s*:\s*"(greeting|out_of_scope|knowledge_query)"',
+                    r'"intent"\s*:\s*"(greeting|out_of_scope|unclear|knowledge_query)"',
                     res_text,
                     re.IGNORECASE,
                 )
@@ -165,9 +156,14 @@ class QueryService:
                 "Belum ada model LLM yang dipilih. Silakan pilih model LLM terlebih dahulu pada menu Prompt & Model Settings."
             )
 
-        intent = await self._classify_intent(request.question, model_name)
+        history_list = (
+            [m.model_dump() for m in request.chat_history] if request.chat_history else None
+        )
+        intent = await self._classify_intent(
+            request.question, model_name, chat_history=history_list, db=db
+        )
 
-        if intent in ("greeting", "out_of_scope"):
+        if intent in ("greeting", "out_of_scope", "unclear"):
             context_snippets = []
             citations = []
         else:
@@ -209,11 +205,13 @@ class QueryService:
                 for chunk, doc, score in chunks_with_meta
             ]
 
-        messages = format_rag_prompt(
+        messages = await format_rag_prompt(
             intent=intent,
             context_snippets=context_snippets,
             question=request.question,
+            chat_history=history_list,
             custom_user_prompt=settings_obj.system_prompt if settings_obj else None,
+            db=db,
         )
 
         answer_parts = []
@@ -255,6 +253,7 @@ class QueryService:
                 latency_ms=latency_ms,
                 top_k=request.top_k,
                 sources_count=len(citations),
+                intent=intent,
                 context_snippets=[
                     c.get("content", "") for c in context_snippets if isinstance(c, dict)
                 ],
@@ -284,18 +283,25 @@ class QueryService:
             return
 
         yield f"data: {json.dumps({'type': 'status', 'status': 'Analyzing intent...'})}\n\n"
-        intent = await self._classify_intent(request.question, model_name)
+        history_list = (
+            [m.model_dump() for m in request.chat_history] if request.chat_history else None
+        )
+        intent = await self._classify_intent(
+            request.question, model_name, chat_history=history_list, db=db
+        )
 
         if intent == "greeting":
             status_text = "Thinking..."
         elif intent == "out_of_scope":
             status_text = "Formulating response..."
+        elif intent == "unclear":
+            status_text = "Asking for clarification..."
         else:
             status_text = "Searching documents..."
 
         yield f"data: {json.dumps({'type': 'status', 'status': status_text})}\n\n"
 
-        if intent in ("greeting", "out_of_scope"):
+        if intent in ("greeting", "out_of_scope", "unclear"):
             context_snippets = []
             citations = []
         else:
@@ -337,11 +343,13 @@ class QueryService:
                 for chunk, doc, score in chunks_with_meta
             ]
 
-        messages = format_rag_prompt(
+        messages = await format_rag_prompt(
             intent=intent,
             context_snippets=context_snippets,
             question=request.question,
+            chat_history=history_list,
             custom_user_prompt=settings_obj.system_prompt if settings_obj else None,
+            db=db,
         )
         full_answer_parts = []
         usage_payload = {}
@@ -391,6 +399,7 @@ class QueryService:
                 latency_ms=latency_ms,
                 top_k=request.top_k,
                 sources_count=len(citations),
+                intent=intent,
                 context_snippets=[
                     c.get("content", "") for c in context_snippets if isinstance(c, dict)
                 ],
@@ -412,6 +421,7 @@ class QueryService:
         latency_ms: int,
         top_k: int,
         sources_count: int,
+        intent: str = "knowledge_query",
         context_snippets: list[str] | None = None,
     ):
         try:
@@ -436,12 +446,13 @@ class QueryService:
                 estimated_cost=estimated_cost,
                 latency_ms=latency_ms,
                 top_k=top_k,
+                intent=intent,
                 sources_count=sources_count,
             )
             db.add(q_log)
             await db.commit()
 
-            # Trigger real asynchronous Ragas LLM-as-a-Judge evaluation in background
+            # Trigger real asynchronous evaluation in background
             await RagasEvaluatorService.evaluate_query_async(
                 query_log_id=q_log.id,
                 tenant_id=tenant_id,
@@ -449,6 +460,7 @@ class QueryService:
                 contexts=context_snippets or [],
                 answer=answer,
                 model_name=model_name,
+                intent=intent,
             )
         except Exception as e:
             logger.error(f"Failed to log query and trigger evaluation: {e}")
