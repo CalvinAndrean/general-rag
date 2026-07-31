@@ -17,6 +17,7 @@ class EvaluationResponse(BaseModel):
     context_precision: float | None = None
     context_recall: float | None = None
     overall_score: float | None = None
+    reasoning: str | None = None
     created_at: str | None = None
 
 

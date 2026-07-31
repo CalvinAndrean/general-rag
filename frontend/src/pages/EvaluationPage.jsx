@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, FlaskConical, HelpCircle, Loader2, MessageSquare, ShieldAlert } from "lucide-react";
+import { BookOpen, Eye, FlaskConical, HelpCircle, Loader2, MessageSquare, ShieldAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import { fetchEvaluations, fetchEvaluationSummary, subscribeEvaluationStream } from "../lib/api";
 import { CardSkeleton, TableSkeleton } from "../components/ui/Skeleton";
@@ -10,6 +10,7 @@ export function EvaluationPage() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [liveStreamActive, setLiveStreamActive] = useState(false);
+  const [selectedEval, setSelectedEval] = useState(null); // For Reasoning Modal
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -152,7 +153,7 @@ export function EvaluationPage() {
         <div className="w-full space-y-6">
           <CardSkeleton count={4} />
           <div className="skeuo-raised p-6">
-            <TableSkeleton rows={5} cols={7} />
+            <TableSkeleton rows={5} cols={8} />
           </div>
         </div>
       ) : (
@@ -253,6 +254,7 @@ export function EvaluationPage() {
                     <th>Precision</th>
                     <th>Recall</th>
                     <th>Overall</th>
+                    <th>Reasoning</th>
                     <th>Date</th>
                   </tr>
                 ) : (
@@ -263,6 +265,7 @@ export function EvaluationPage() {
                     <th>Intent Accuracy</th>
                     <th>Response Tone</th>
                     <th>Overall Score</th>
+                    <th>Reasoning</th>
                     <th>Date</th>
                   </tr>
                 )}
@@ -290,6 +293,15 @@ export function EvaluationPage() {
                         </>
                       )}
                       <td className="font-bold">{formatScore(ev.overall_score, ev.status)}</td>
+                      <td>
+                        <button
+                          onClick={() => setSelectedEval(ev)}
+                          className="skeuo-button bg-gray-50 hover:bg-gray-100 text-[11px] font-semibold text-[var(--text-secondary)] px-2.5 py-1 rounded-lg border border-[var(--border-light)] flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Eye className="h-3 w-3 text-[var(--info)]" />
+                          View
+                        </button>
+                      </td>
                       <td className="text-xs text-[var(--text-muted)]">
                         {ev.created_at ? new Date(ev.created_at).toLocaleDateString() : "-"}
                       </td>
@@ -298,7 +310,7 @@ export function EvaluationPage() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={activeTab === "knowledge_query" ? 8 : 7}
+                      colSpan={activeTab === "knowledge_query" ? 9 : 8}
                       className="text-center text-xs text-[var(--text-muted)] py-8"
                     >
                       {activeTab === "knowledge_query"
@@ -311,6 +323,109 @@ export function EvaluationPage() {
             </table>
           </div>
         </>
+      )}
+
+      {/* Reasoning Modal Popup */}
+      {selectedEval && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-[var(--border-light)] shadow-2xl w-full max-w-lg overflow-hidden space-y-4 p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-3">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-5 w-5 text-[var(--info)]" />
+                <h3 className="text-sm font-bold text-[var(--text-heading)]">
+                  Evaluation LLM Reasoning
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedEval(null)}
+                className="p-1 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Query & Intent Overview */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                User Question / Input
+              </span>
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-[var(--text-heading)] font-medium">
+                {selectedEval.question || "N/A"}
+              </div>
+            </div>
+
+            {/* Badges & Scores */}
+            <div className="flex items-center justify-between gap-2 p-3 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-light)]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--text-secondary)] font-medium">Intent:</span>
+                {renderIntentBadge(selectedEval.intent)}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--text-secondary)] font-medium">Overall Score:</span>
+                {formatScore(selectedEval.overall_score, selectedEval.status)}
+              </div>
+            </div>
+
+            {/* Metrics Breakdown */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                Scores Breakdown
+              </span>
+              {selectedEval.evaluation_type === "knowledge_query" ? (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
+                    <span className="text-[var(--text-secondary)] font-medium">Faithfulness:</span>
+                    {formatScore(selectedEval.faithfulness, selectedEval.status)}
+                  </div>
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
+                    <span className="text-[var(--text-secondary)] font-medium">Answer Relevancy:</span>
+                    {formatScore(selectedEval.answer_relevancy, selectedEval.status)}
+                  </div>
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
+                    <span className="text-[var(--text-secondary)] font-medium">Context Precision:</span>
+                    {formatScore(selectedEval.context_precision, selectedEval.status)}
+                  </div>
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
+                    <span className="text-[var(--text-secondary)] font-medium">Context Recall:</span>
+                    {formatScore(selectedEval.context_recall, selectedEval.status)}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
+                    <span className="text-[var(--text-secondary)] font-medium">Intent Accuracy:</span>
+                    {formatScore(selectedEval.faithfulness, selectedEval.status)}
+                  </div>
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
+                    <span className="text-[var(--text-secondary)] font-medium">Response Tone:</span>
+                    {formatScore(selectedEval.answer_relevancy, selectedEval.status)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* LLM Judge Reasoning */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                LLM-as-a-Judge Reasoning
+              </span>
+              <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-xl text-xs text-[var(--text-heading)] leading-relaxed italic">
+                "{selectedEval.reasoning || "Evaluation completed successfully by LLM-as-a-Judge."}"
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setSelectedEval(null)}
+                className="skeuo-button bg-[var(--info)] text-white font-semibold text-xs px-4 py-2 rounded-xl cursor-pointer shadow-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -17,7 +17,10 @@ from sqlalchemy import select
 from app.core.clients import openrouter_client
 from app.core.database import AsyncSessionLocal
 from app.core.logger import EvaluationLogger
-from app.core.prompts import format_evaluation_prompt
+from app.core.prompts import (
+    format_evaluation_prompt,
+    format_intent_handling_evaluation_prompt,
+)
 from app.models.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)
@@ -194,22 +197,13 @@ class RagasEvaluatorService:
         try:
             if evaluation_type == "intent_handling":
                 # Intent Handling Evaluation (Greetings, Out-of-Scope, Unclear)
-                prompt = f"""You are an expert conversational AI evaluator.
-Evaluate how effectively the AI assistant handled a non-knowledge query with intent: '{intent.upper()}'.
-
-User Message: {question.strip()}
-AI Response: {answer.strip() if answer else "[No answer generated]"}
-
-Assign scores (0.00 to 1.00):
-1. "intent_accuracy": Did the AI correctly handle the '{intent}' intent without hallucinating fake document facts? (1.00 = perfect intent handling, 0.00 = wrong intent handling).
-2. "response_politeness": Is the response friendly, clear, polite, and appropriately helpful? (1.00 = highly polite and natural, 0.00 = rude or inappropriate).
-
-Return ONLY raw JSON:
-{{
-  "intent_accuracy": 0.95,
-  "response_politeness": 0.95,
-  "reasoning": "Short explanation"
-}}"""
+                async with AsyncSessionLocal() as db:
+                    prompt = await format_intent_handling_evaluation_prompt(
+                        intent=intent,
+                        question=question.strip(),
+                        answer=answer.strip() if answer else "[No answer generated]",
+                        db=db,
+                    )
                 messages = [
                     {
                         "role": "system",

@@ -63,6 +63,7 @@ class EvaluationRepository:
                     "overall_score": float(eval_obj.overall_score)
                     if eval_obj.overall_score
                     else None,
+                    "reasoning": (eval_obj.evaluation_metadata or {}).get("reasoning"),
                     "created_at": str(eval_obj.created_at) if eval_obj.created_at else None,
                 }
             )
