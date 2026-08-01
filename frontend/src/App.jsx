@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Loader2, Bot } from "lucide-react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
@@ -82,28 +83,17 @@ function AuthenticatedApp() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg-primary)]">
-        <div className="flex flex-col items-center gap-4">
-          {/* Logo with Glowing Ring & Spin Animation */}
-          <div className="relative flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-xl animate-pulse" />
-            <div className="relative h-16 w-16 rounded-2xl bg-white border border-[var(--border-light)] shadow-md flex items-center justify-center p-3">
-              <img
-                src="/Logo-Cognava-Assistant.png"
-                alt="Cognava"
-                className="h-10 w-10 object-contain"
-              />
-            </div>
-            <div className="absolute -inset-2.5 rounded-3xl border-2 border-transparent border-t-[var(--info)] border-r-blue-400 animate-spin" />
+        <div className="flex flex-col items-center gap-3.5">
+          <div className="h-12 w-12 rounded-2xl bg-white border border-[var(--border-light)] shadow-xs flex items-center justify-center text-[var(--info)] relative">
+            <Bot className="h-6 w-6" />
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600" />
+            </span>
           </div>
-
-          {/* Title & Subtitle */}
-          <div className="flex flex-col items-center text-center space-y-1 mt-1">
-            <h1 className="text-sm font-bold text-[var(--text-heading)] tracking-tight">
-              Cognava
-            </h1>
-            <p className="text-xs text-[var(--text-muted)] font-medium animate-pulse">
-              Loading workspace...
-            </p>
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--info)]" />
+            <span className="text-xs font-semibold text-[var(--text-heading)]">Loading Cognava...</span>
           </div>
         </div>
       </div>
