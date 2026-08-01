@@ -81,8 +81,31 @@ function AuthenticatedApp() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] text-xs text-[var(--text-muted)]">
-        Initializing General RAG Platform...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg-primary)]">
+        <div className="flex flex-col items-center gap-4">
+          {/* Logo with Glowing Ring & Spin Animation */}
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-xl animate-pulse" />
+            <div className="relative h-16 w-16 rounded-2xl bg-white border border-[var(--border-light)] shadow-md flex items-center justify-center p-3">
+              <img
+                src="/Logo-Cognava-Assistant.png"
+                alt="Cognava"
+                className="h-10 w-10 object-contain"
+              />
+            </div>
+            <div className="absolute -inset-2.5 rounded-3xl border-2 border-transparent border-t-[var(--info)] border-r-blue-400 animate-spin" />
+          </div>
+
+          {/* Title & Subtitle */}
+          <div className="flex flex-col items-center text-center space-y-1 mt-1">
+            <h1 className="text-sm font-bold text-[var(--text-heading)] tracking-tight">
+              Cognava
+            </h1>
+            <p className="text-xs text-[var(--text-muted)] font-medium animate-pulse">
+              Loading workspace...
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
