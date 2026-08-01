@@ -7,7 +7,7 @@ export function MessageItem({ message }) {
   const isUser = message.role === "user";
 
   return (
-    <div className={`flex gap-3.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+    <div className={`flex gap-3.5 min-w-0 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       {/* Avatar */}
       <div
         className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 border shadow-xs ${
@@ -24,9 +24,9 @@ export function MessageItem({ message }) {
       </div>
 
       {/* Bubble */}
-      <div className={`max-w-2xl space-y-2 ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`max-w-2xl w-full min-w-0 space-y-2 ${isUser ? "items-end" : "items-start"}`}>
         <div
-          className={`p-4 rounded-2xl text-xs leading-relaxed ${
+          className={`p-4 rounded-2xl text-xs leading-relaxed max-w-full overflow-hidden ${
             isUser
               ? "bg-[var(--info)] text-white shadow-xs rounded-tr-xs"
               : "bg-[#f8fafc] text-[var(--text-heading)] border border-[#e2e8f0] shadow-xs rounded-tl-xs"

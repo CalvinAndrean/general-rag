@@ -110,24 +110,30 @@ export function MarkdownRenderer({ content }) {
 
           // Tables
           table: ({ children }) => (
-            <div className="overflow-x-auto my-2 rounded-lg border border-[var(--border-light)]">
-              <table className="w-full text-[11px] border-collapse">{children}</table>
+            <div className="overflow-x-auto my-3 rounded-lg border border-[var(--border-light)] shadow-2xs bg-white w-full max-w-full">
+              <table className="min-w-max w-full text-xs border-collapse divide-y divide-[var(--border-light)]">
+                {children}
+              </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-[var(--bg-surface)]">{children}</thead>
+            <thead className="bg-[#f8fafc] text-[var(--text-heading)] font-semibold">{children}</thead>
           ),
-          tbody: ({ children }) => <tbody>{children}</tbody>,
+          tbody: ({ children }) => (
+            <tbody className="divide-y divide-[var(--border-light)] bg-white">{children}</tbody>
+          ),
           tr: ({ children }) => (
-            <tr className="border-b border-[var(--border-light)] last:border-b-0">{children}</tr>
+            <tr className="hover:bg-slate-50/80 transition-colors">{children}</tr>
           ),
           th: ({ children }) => (
-            <th className="px-3 py-1.5 text-left font-semibold text-[var(--text-heading)] text-[11px]">
+            <th className="px-3.5 py-2.5 text-left text-[11px] font-bold text-[var(--text-heading)] uppercase tracking-wider whitespace-nowrap bg-[#f8fafc] border-b border-[var(--border-light)]">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="px-3 py-1.5 text-[var(--text-secondary)] text-[11px]">{children}</td>
+            <td className="px-3.5 py-2 text-xs text-[var(--text-body)] whitespace-nowrap align-top">
+              {children}
+            </td>
           ),
 
           // Images
